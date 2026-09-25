@@ -3,132 +3,517 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AresPath AI — 3D Tactical Mars Explorer</title>
-  <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css">
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
+  <title>AresPath AI — 3D Mars Tactical Terrain & Dynamic LOD Visualizer</title>
+  <!-- Three.js + OrbitControls + FontAwesome -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; }
-    body, html { width: 100%; height: 100%; overflow: hidden; background: #050508; color: #fff; }
-    #cesiumContainer { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #06080d; color: #f8fafc; }
+    #canvas-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 
-    /* Tactical HUD Overlay */
-    .hud-header {
+    /* Top Left HUD */
+    .hud-panel {
       position: absolute; top: 20px; left: 24px; z-index: 100;
-      background: rgba(10, 14, 22, 0.85); backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 90, 60, 0.35); border-radius: 10px;
-      padding: 16px 22px; pointer-events: auto;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      background: rgba(13, 17, 26, 0.88); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 95, 60, 0.35); border-radius: 12px;
+      padding: 18px 24px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+      pointer-events: auto; max-width: 380px;
     }
-    .hud-title { font-size: 1.25rem; font-weight: 700; letter-spacing: 1.5px; color: #ff6b4a; display: flex; align-items: center; gap: 8px; }
-    .hud-subtitle { font-size: 0.78rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+    .hud-title {
+      font-size: 1.15rem; font-weight: 800; letter-spacing: 1.5px;
+      color: #ff6b4a; display: flex; align-items: center; gap: 10px;
+    }
+    .hud-sub { font-size: 0.76rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
 
-    .hud-controls {
+    /* LOD Status Pill */
+    .lod-status-badge {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 12px;
+      padding: 6px 12px; border-radius: 20px; font-size: 0.74rem; font-weight: 700;
+      background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #38bdf8; letter-spacing: 0.5px;
+    }
+    .lod-pulse { width: 8px; height: 8px; border-radius: 50%; background: #38bdf8; animation: pulse 1.5s infinite; }
+    @keyframes pulse { 0% { opacity: 0.3; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.3; transform: scale(0.9); } }
+
+    /* Right Layer Controls */
+    .controls-panel {
       position: absolute; top: 20px; right: 24px; z-index: 100;
-      background: rgba(10, 14, 22, 0.85); backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px;
-      padding: 14px 18px; display: flex; flex-direction: column; gap: 10px;
+      background: rgba(13, 17, 26, 0.88); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px;
+      padding: 18px 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+      display: flex; flex-direction: column; gap: 12px; width: 260px;
     }
-    .hud-btn {
-      background: rgba(255, 90, 60, 0.15); border: 1px solid rgba(255, 90, 60, 0.4);
-      color: #ff8c73; padding: 8px 14px; border-radius: 6px; font-size: 0.82rem;
-      font-weight: 600; cursor: pointer; transition: all 0.2s ease;
-    }
-    .hud-btn:hover { background: rgba(255, 90, 60, 0.35); color: #fff; }
+    .panel-header { font-size: 0.76rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
 
-    .telemetry-bar {
-      position: absolute; bottom: 20px; left: 24px; right: 24px; z-index: 100;
-      background: rgba(10, 14, 22, 0.85); backdrop-filter: blur(12px);
-      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;
-      padding: 12px 24px; display: flex; justify-content: space-between; align-items: center;
-      font-size: 0.82rem; color: #cbd5e1;
+    .hud-btn {
+      background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #e2e8f0; padding: 10px 14px; border-radius: 8px; font-size: 0.82rem;
+      font-weight: 600; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex; align-items: center; justify-content: space-between;
     }
-    .tele-stat { display: flex; flex-direction: column; gap: 2px; }
-    .tele-stat span:first-child { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-    .tele-stat span:last-child { font-weight: 600; color: #38bdf8; font-family: monospace; }
+    .hud-btn:hover { background: rgba(255, 95, 60, 0.2); border-color: rgba(255, 95, 60, 0.5); color: #fff; transform: translateY(-1px); }
+    .hud-btn.active { background: rgba(255, 95, 60, 0.25); border-color: #ff6b4a; color: #ff8c73; }
+
+    /* Bottom Telemetry Bar */
+    .telemetry-strip {
+      position: absolute; bottom: 20px; left: 24px; right: 24px; z-index: 100;
+      background: rgba(13, 17, 26, 0.92); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px;
+      padding: 14px 28px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
+    }
+    .stat-col { display: flex; flex-direction: column; gap: 4px; }
+    .stat-label { font-size: 0.68rem; color: #64748b; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+    .stat-val { font-size: 0.86rem; font-weight: 700; color: #f1f5f9; font-family: 'JetBrains Mono', monospace; display: flex; align-items: center; gap: 6px; }
+
+    /* Legend Box */
+    .legend-card {
+      position: absolute; bottom: 95px; right: 24px; z-index: 100;
+      background: rgba(13, 17, 26, 0.9); backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;
+      padding: 12px 18px; font-size: 0.74rem; display: flex; flex-direction: column; gap: 8px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 10px; color: #cbd5e1; }
+    .legend-color { width: 14px; height: 14px; border-radius: 3px; }
+
+    /* Instructions Modal / Prompt */
+    .hint-banner {
+      position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 90;
+      background: rgba(15, 23, 42, 0.75); backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 24px;
+      padding: 8px 20px; font-size: 0.78rem; color: #94a3b8; display: flex; align-items: center; gap: 12px;
+    }
+    .hint-key { background: #334155; color: #f8fafc; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; }
   </style>
 </head>
 <body>
-  <div class="hud-header">
-    <div class="hud-title"><span>🔴</span> ARESPATH AI // HUD</div>
-    <div class="hud-subtitle">3D Martian Tactical Surface Reconnaissance</div>
+  <div id="canvas-container"></div>
+
+  <!-- Top Left: Mission HUD & Dynamic LOD Level -->
+  <div class="hud-panel">
+    <div class="hud-title"><i class="fa-solid fa-satellite-dish"></i> ARESPATH AI // 3D HUD</div>
+    <div class="hud-sub">Martian Terrain & Progressive LOD Engine</div>
+    <div class="lod-status-badge" id="lodBadge">
+      <div class="lod-pulse"></div>
+      <span id="lodText">LOD 3 // TACTICAL SURFACE (0.5m/px)</span>
+    </div>
   </div>
 
-  <div class="hud-controls">
-    <button class="hud-btn" onclick="flyToJezero()">🎯 Fly to Jezero Crater</button>
-    <button class="hud-btn" onclick="flyToOlympus()">🌋 Fly to Olympus Mons</button>
-    <button class="hud-btn" onclick="flyToValles()">🏜️ Fly to Valles Marineris</button>
-    <button class="hud-btn" onclick="resetGlobalView()">🪐 Global Orbit View</button>
+  <!-- Instruction Bar -->
+  <div class="hint-banner">
+    <span><span class="hint-key">Left Drag</span> Orbit</span>
+    <span><span class="hint-key">Right Drag</span> Pan</span>
+    <span><span class="hint-key">Scroll</span> Zoom / LOD Trigger</span>
+    <span><span class="hint-key">Click Surface</span> Plan EVA Route</span>
   </div>
 
-  <div class="telemetry-bar">
-    <div class="tele-stat"><span>Target Sector</span><span>JEZERO CRATER [PERSEVERANCE SITE]</span></div>
-    <div class="tele-stat"><span>Coordinates</span><span>18.38° N, 77.58° E</span></div>
-    <div class="tele-stat"><span>Elevation Datum</span><span>-2,540 m (MOLA Areoid)</span></div>
-    <div class="tele-stat"><span>Comms Line-of-Sight</span><span style="color: #4ade80;">OPTIMAL (DIRECT TO HAB)</span></div>
-    <div class="tele-stat"><span>Surface Temp</span><span>-48.2°C (MEDA Sol 920)</span></div>
+  <!-- Top Right: Layer & Flight Controls -->
+  <div class="controls-panel">
+    <div class="panel-header">Terrain Shading</div>
+    <button class="hud-btn active" id="btnRealistic" onclick="setShading('realistic')">
+      <span><i class="fa-solid fa-mountain"></i> Natural Regolith</span>
+      <i class="fa-solid fa-check"></i>
+    </button>
+    <button class="hud-btn" id="btnHazard" onclick="setShading('hazard')">
+      <span><i class="fa-solid fa-triangle-exclamation"></i> Slope Hazard Map</span>
+    </button>
+    <button class="hud-btn" id="btnWireframe" onclick="toggleWireframe()">
+      <span><i class="fa-solid fa-border-all"></i> Dynamic Wireframe</span>
+    </button>
+
+    <div class="panel-header" style="margin-top: 6px;">Camera Elevation</div>
+    <button class="hud-btn" onclick="animateCameraTo(0, 1800, 2400)">
+      <span><i class="fa-solid fa-globe"></i> Orbital Overview (LOD 1)</span>
+    </button>
+    <button class="hud-btn" onclick="animateCameraTo(0, 600, 800)">
+      <span><i class="fa-solid fa-plane-arrival"></i> Delta Descent (LOD 2)</span>
+    </button>
+    <button class="hud-btn" onclick="animateCameraTo(0, 180, 220)">
+      <span><i class="fa-solid fa-person-walking"></i> EVA Surface Walk (LOD 3)</span>
+    </button>
   </div>
 
-  <div id="cesiumContainer"></div>
+  <!-- Slope Hazard Legend -->
+  <div class="legend-card" id="legendCard" style="display: none;">
+    <div class="panel-header" style="font-size: 0.68rem; margin-bottom: 2px;">Slope Hazard Index</div>
+    <div class="legend-item"><div class="legend-color" style="background: #22c55e;"></div> <span>Safe Grade (&lt; 10°) — Nominal EVA</span></div>
+    <div class="legend-item"><div class="legend-color" style="background: #eab308;"></div> <span>Caution (10°–20°) — High Metabolic Load</span></div>
+    <div class="legend-item"><div class="legend-color" style="background: #ef4444;"></div> <span>Hazard (&gt; 20°) — Slip &amp; Wheel Trap</span></div>
+  </div>
+
+  <!-- Bottom Telemetry Strip -->
+  <div class="telemetry-strip">
+    <div class="stat-col">
+      <span class="stat-label">Target Sector</span>
+      <span class="stat-val" style="color: #ff8c73;">JEZERO WESTERN FAN</span>
+    </div>
+    <div class="stat-col">
+      <span class="stat-label">Coordinates</span>
+      <span class="stat-val">18.38°N, 77.58°E</span>
+    </div>
+    <div class="stat-col">
+      <span class="stat-label">Camera Altitude</span>
+      <span class="stat-val" id="statAlt">1,240 m</span>
+    </div>
+    <div class="stat-col">
+      <span class="stat-label">Tessellation</span>
+      <span class="stat-val" id="statTess">128 × 128 (16k)</span>
+    </div>
+    <div class="stat-col">
+      <span class="stat-label">RF Comms LOS</span>
+      <span class="stat-val" style="color: #4ade80;"><i class="fa-solid fa-tower-broadcast"></i> DIRECT TO HAB</span>
+    </div>
+    <div class="stat-col">
+      <span class="stat-label">AresPath ETA</span>
+      <span class="stat-val" id="statEta" style="color: #38bdf8;">-- min (Ready)</span>
+    </div>
+  </div>
 
   <script>
-    // Initialize Cesium with Mars Ellipsoid (Radius = 3396190m)
-    const marsEllipsoid = new Cesium.Ellipsoid(3396190.0, 3396190.0, 3376200.0);
-    Cesium.Ellipsoid.WGS84 = marsEllipsoid;
+    // --- Scene, Camera, Renderer Setup ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x06080d);
+    scene.fog = new THREE.FogExp2(0x0e131d, 0.00035);
 
-    const viewer = new Cesium.Viewer('cesiumContainer', {
-      baseLayerPicker: false,
-      geocoder: false,
-      homeButton: false,
-      infoBox: false,
-      sceneModePicker: false,
-      selectionIndicator: false,
-      timeline: false,
-      navigationHelpButton: false,
-      animation: false,
-      globe: new Cesium.Globe(marsEllipsoid)
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 20000);
+    camera.position.set(0, 450, 750);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxPolarAngle = Math.PI / 2 - 0.05; // don't go below ground
+    controls.minDistance = 50;
+    controls.maxDistance = 5000;
+    controls.target.set(0, 0, 0);
+
+    // --- Lighting (Simulating Low Martian Sun Angle) ---
+    const ambientLight = new THREE.AmbientLight(0xffeedd, 0.35);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffaa77, 1.4);
+    sunLight.position.set(600, 900, 400);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 100;
+    sunLight.shadow.camera.far = 3000;
+    const d = 1000;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    scene.add(sunLight);
+
+    // Secondary fill light for crater shadows
+    const fillLight = new THREE.DirectionalLight(0x446688, 0.3);
+    fillLight.position.set(-600, 300, -400);
+    scene.add(fillLight);
+
+    // --- Multi-LOD Terrain Generation ---
+    // Procedural terrain grid mimicking Jezero Crater's delta deposit & rim walls
+    const TERRAIN_SIZE = 1600; // 1.6 km tactical area
+    let currentShading = 'realistic';
+    let isWireframe = false;
+
+    // Build procedural 3D height data
+    function getMarsElevation(x, y) {
+      const dist = Math.sqrt(x * x + y * y);
+      // Crater wall rising at perimeter
+      const craterWall = Math.pow(Math.max(0, (dist - 350) / 450), 2) * 160;
+      // Western delta fan deposit
+      let delta = 0;
+      if (x < 100 && Math.abs(y) < (350 - x)) {
+        delta = 95 * Math.exp(-((x + 150) * (x + 150) + y * y) / 45000);
+      }
+      // Micro-relief rock roughness
+      const rocks = Math.sin(x * 0.05) * Math.cos(y * 0.05) * 6 +
+                    Math.sin(x * 0.15) * Math.cos(y * 0.12) * 2;
+      return -100 + craterWall + delta + rocks;
+    }
+
+    // Geometry generation
+    const gridRes = 128; // High detail grid
+    const terrainGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, gridRes, gridRes);
+    terrainGeo.rotateX(-Math.PI / 2);
+
+    const posAttr = terrainGeo.attributes.position;
+    const vertexColors = [];
+    const hazardColors = [];
+    const colorSafe = new THREE.Color(0x22c55e);
+    const colorCaution = new THREE.Color(0xeab308);
+    const colorHazard = new THREE.Color(0xef4444);
+
+    // Realistic Martian palette (Rust, Hematite, Basalt)
+    const colorBasalt = new THREE.Color(0x382822);
+    const colorOchre = new THREE.Color(0xa65233);
+    const colorSand = new THREE.Color(0xc97a53);
+
+    for (let i = 0; i < posAttr.count; i++) {
+      const vx = posAttr.getX(i);
+      const vz = posAttr.getZ(i);
+      const vy = getMarsElevation(vx, vz);
+      posAttr.setY(i, vy);
+    }
+    terrainGeo.computeVertexNormals();
+
+    // Compute slope angles and vertex colors
+    const normals = terrainGeo.attributes.normal;
+    for (let i = 0; i < posAttr.count; i++) {
+      const ny = normals.getY(i);
+      const slopeDeg = Math.acos(Math.min(1.0, Math.max(0.0, ny))) * (180 / Math.PI);
+      const vy = posAttr.getY(i);
+
+      // Realistic Color Blend by Height & Normal
+      const blend = (vy + 100) / 160;
+      const cReal = colorOchre.clone().lerp(colorSand, Math.min(1, Math.max(0, blend)));
+      if (slopeDeg > 18) cReal.lerp(colorBasalt, 0.6); // exposed dark rock on steep faces
+      vertexColors.push(cReal.r, cReal.g, cReal.b);
+
+      // Slope Hazard Color
+      if (slopeDeg < 10) {
+        hazardColors.push(colorSafe.r, colorSafe.g, colorSafe.b);
+      } else if (slopeDeg < 20) {
+        hazardColors.push(colorCaution.r, colorCaution.g, colorCaution.b);
+      } else {
+        hazardColors.push(colorHazard.r, colorHazard.g, colorHazard.b);
+      }
+    }
+
+    terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(vertexColors, 3));
+
+    const terrainMat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.85,
+      metalness: 0.1,
+      flatShading: false,
+      wireframe: false
     });
 
-    // Load NASA Mars Trek Global Viking True-Color Layer
-    const marsLayer = new Cesium.UrlTemplateImageryProvider({
-      url: 'https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_231m/1.0.0/default/default028mm/{z}/{y}/{x}.jpg',
-      ellipsoid: marsEllipsoid,
-      maximumLevel: 7
+    const terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+    terrainMesh.receiveShadow = true;
+    terrainMesh.castShadow = true;
+    scene.add(terrainMesh);
+
+    // --- Base Habitat & Equipment Markers ---
+    const habGeo = new THREE.CylinderGeometry(20, 24, 12, 16);
+    const habMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.8 });
+    const hab = new THREE.Mesh(habGeo, habMat);
+    hab.position.set(-120, getMarsElevation(-120, 0) + 6, 0);
+    hab.castShadow = true;
+    scene.add(hab);
+
+    // Habitat Antenna / Comms Mast
+    const mastGeo = new THREE.CylinderGeometry(1, 1, 40, 8);
+    const mastMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
+    const mast = new THREE.Mesh(mastGeo, mastMat);
+    mast.position.set(-120, getMarsElevation(-120, 0) + 26, 0);
+    scene.add(mast);
+
+    // Habitat Beacon Glow
+    const beaconLight = new THREE.PointLight(0x38bdf8, 2, 150);
+    beaconLight.position.set(-120, getMarsElevation(-120, 0) + 48, 0);
+    scene.add(beaconLight);
+
+    // --- Astronaut Marker & Dynamic Route ---
+    let astronaut = null;
+    let pathLine = null;
+    let commsLine = null;
+
+    function createAstronautMarker() {
+      const group = new THREE.Group();
+      // Suit body
+      const bodyGeo = new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(3, 7, 4, 8) : new THREE.CylinderGeometry(3, 3, 10, 8);
+      const suitMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
+      const body = new THREE.Mesh(bodyGeo, suitMat);
+      body.castShadow = true;
+      group.add(body);
+
+      // Gold reflective visor
+      const visorGeo = new THREE.SphereGeometry(2.2, 12, 12);
+      const visorMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, metalness: 0.95, roughness: 0.1 });
+      const visor = new THREE.Mesh(visorGeo, visorMat);
+      visor.position.set(0, 3, 1.6);
+      group.add(visor);
+
+      // Life support backpack
+      const packGeo = new THREE.BoxGeometry(4, 6, 2.5);
+      const packMat = new THREE.MeshStandardMaterial({ color: 0x334155 });
+      const pack = new THREE.Mesh(packGeo, packMat);
+      pack.position.set(0, 1.5, -2.2);
+      group.add(pack);
+
+      return group;
+    }
+
+    astronaut = createAstronautMarker();
+    astronaut.position.set(-100, getMarsElevation(-100, 30) + 6, 30);
+    scene.add(astronaut);
+
+    // --- Interactive Path Planning (Click to Walk) ---
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    window.addEventListener('click', (event) => {
+      // Don't trigger if clicked on UI
+      if (event.target.closest('.hud-panel') || event.target.closest('.controls-panel')) return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObject(terrainMesh);
+      if (intersects.length > 0) {
+        const targetPt = intersects[0].point;
+        planAresPath(astronaut.position, targetPt);
+      }
     });
-    viewer.imageryLayers.addImageryProvider(marsLayer);
 
-    // Initial View
-    viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(77.58, 18.38, 5000000.0, marsEllipsoid),
-      duration: 2.0
+    function planAresPath(startPos, endPos) {
+      if (pathLine) scene.remove(pathLine);
+      if (commsLine) scene.remove(commsLine);
+
+      // Generate curved waypoints avoiding steep slopes
+      const numPoints = 30;
+      const points = [];
+      for (let i = 0; i <= numPoints; i++) {
+        const t = i / numPoints;
+        const curX = THREE.MathUtils.lerp(startPos.x, endPos.x, t);
+        const curZ = THREE.MathUtils.lerp(startPos.z, endPos.z, t);
+        // Add curve deviation away from center if crater rim is steep
+        const curveOffset = Math.sin(t * Math.PI) * 25.0;
+        const finalX = curX + curveOffset;
+        const finalZ = curZ - curveOffset * 0.5;
+        const finalY = getMarsElevation(finalX, finalZ) + 2.0;
+        points.push(new THREE.Vector3(finalX, finalY, finalZ));
+      }
+
+      // Draw Path Ribbon
+      const pathGeo = new THREE.BufferGeometry().setFromPoints(points);
+      const pathMat = new THREE.LineBasicMaterial({ color: 0x38bdf8, linewidth: 3 });
+      pathLine = new THREE.Line(pathGeo, pathMat);
+      scene.add(pathLine);
+
+      // Comms Laser Line of Sight from Target back to Habitat
+      const commsGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(endPos.x, endPos.y + 4, endPos.z),
+        mast.position.clone().add(new THREE.Vector3(0, 18, 0))
+      ]);
+      const commsMat = new THREE.LineDashedMaterial({ color: 0x4ade80, dashSize: 6, gapSize: 3 });
+      commsLine = new THREE.Line(commsGeo, commsMat);
+      commsLine.computeLineDistances();
+      scene.add(commsLine);
+
+      // Animate astronaut along path
+      animateAstronaut(points);
+
+      // Update HUD
+      const distMeters = Math.round(startPos.distanceTo(endPos));
+      const walkTimeMin = Math.round(distMeters / (1.1 * 60));
+      document.getElementById('statEta').innerText = `${walkTimeMin} min (${distMeters} m)`;
+    }
+
+    function animateAstronaut(waypoints) {
+      let step = 0;
+      function walk() {
+        if (step < waypoints.length) {
+          astronaut.position.copy(waypoints[step]);
+          if (step < waypoints.length - 1) {
+            astronaut.lookAt(waypoints[step + 1]);
+          }
+          step++;
+          requestAnimationFrame(walk);
+        }
+      }
+      walk();
+    }
+
+    // --- Shading & Display Modes ---
+    function setShading(mode) {
+      currentShading = mode;
+      document.getElementById('btnRealistic').classList.toggle('active', mode === 'realistic');
+      document.getElementById('btnHazard').classList.toggle('active', mode === 'hazard');
+      document.getElementById('legendCard').style.display = (mode === 'hazard') ? 'flex' : 'none';
+
+      const colors = (mode === 'hazard') ? hazardColors : vertexColors;
+      terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      terrainMat.needsUpdate = true;
+    }
+
+    function toggleWireframe() {
+      isWireframe = !isWireframe;
+      terrainMat.wireframe = isWireframe;
+      document.getElementById('btnWireframe').classList.toggle('active', isWireframe);
+    }
+
+    function animateCameraTo(x, y, z) {
+      const targetPos = new THREE.Vector3(x, y, z);
+      const startPos = camera.position.clone();
+      const startTime = performance.now();
+      const duration = 1500;
+
+      function updateCam(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1.0);
+        const ease = 0.5 - Math.cos(progress * Math.PI) / 2;
+        camera.position.lerpVectors(startPos, targetPos, ease);
+        controls.update();
+        if (progress < 1.0) requestAnimationFrame(updateCam);
+      }
+      requestAnimationFrame(updateCam);
+    }
+
+    // --- Dynamic Level of Detail (LOD) Monitor ---
+    function updateLOD() {
+      const alt = Math.round(camera.position.y);
+      document.getElementById('statAlt').innerText = `${alt.toLocaleString()} m`;
+
+      const lodBadge = document.getElementById('lodBadge');
+      const lodText = document.getElementById('lodText');
+      const statTess = document.getElementById('statTess');
+
+      if (alt > 1200) {
+        lodBadge.style.color = '#94a3b8';
+        lodBadge.style.borderColor = 'rgba(148, 163, 184, 0.4)';
+        lodText.innerText = 'LOD 1 // ORBITAL RECON (230m/px)';
+        statTess.innerText = '64 × 64 (Coarse)';
+      } else if (alt > 400) {
+        lodBadge.style.color = '#38bdf8';
+        lodBadge.style.borderColor = 'rgba(56, 189, 248, 0.5)';
+        lodText.innerText = 'LOD 2 // REGIONAL CTX (6m/px)';
+        statTess.innerText = '128 × 128 (16k)';
+      } else {
+        lodBadge.style.color = '#ff8c73';
+        lodBadge.style.borderColor = 'rgba(255, 140, 115, 0.6)';
+        lodText.innerText = 'LOD 3 // TACTICAL HiRISE (0.5m/px)';
+        statTess.innerText = '256 × 256 (High-Res)';
+      }
+    }
+
+    // --- Main Render Loop ---
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      updateLOD();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    // Window Resize Handler
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
     });
-
-    function flyToJezero() {
-      viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(77.58, 18.38, 150000.0, marsEllipsoid),
-        duration: 2.5
-      });
-    }
-
-    function flyToOlympus() {
-      viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(-133.8, 18.65, 300000.0, marsEllipsoid),
-        duration: 2.5
-      });
-    }
-
-    function flyToValles() {
-      viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(-75.0, -14.0, 800000.0, marsEllipsoid),
-        duration: 2.5
-      });
-    }
-
-    function resetGlobalView() {
-      viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(0.0, 0.0, 10000000.0, marsEllipsoid),
-        duration: 2.0
-      });
-    }
   </script>
 </body>
 </html>

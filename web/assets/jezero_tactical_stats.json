@@ -1,0 +1,15 @@
+{
+  "sector": "Jezero Crater Western Delta",
+  "center_lat": 18.38,
+  "center_lon": 77.58,
+  "grid_resolution_m": 5.0,
+  "elevation_min_m": -2545.9000235069907,
+  "elevation_max_m": -2353.1488202289243,
+  "elevation_mean_m": -2448.5368470990857,
+  "max_slope_deg": 62.316477777924966,
+  "safe_terrain_pct": 23.8006591796875,
+  "hazard_terrain_pct": 51.67083740234375,
+  "output_mesh_file": "jezero_crater_mesh.obj",
+  "output_terrain_rgb": "jezero_delta_terrain_rgb.png",
+  "output_hazard_map": "jezero_slope_hazard_map.png"
+}
