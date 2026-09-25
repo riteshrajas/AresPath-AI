@@ -453,6 +453,13 @@
     };
 
     let currentSectorId = 'jezero';
+    let isSurfaceMode = false;
+    let isHazardMapActive = false;
+    let isWireframeActive = false;
+    let isAutoRotating = false;
+    let isTransitioning = false;
+    let pathLine = null;
+    let commsLine = null;
 
     function getMarsElevation(x, y) {
       const sec = SECTORS_DATA[currentSectorId] || SECTORS_DATA.jezero;
@@ -603,8 +610,6 @@
       });
     }
 
-    rebuildSurfaceForSector('jezero');
-
     // Astronaut Marker
     function createAstronaut() {
       const g = new THREE.Group();
@@ -630,19 +635,14 @@
     }
 
     const astronaut = createAstronaut();
-    astronaut.position.set(-80, getMarsElevation(-80, 25) + 5, 25);
     surfaceGroup.add(astronaut);
+
+    // Initial surface build for Jezero Crater
+    rebuildSurfaceForSector('jezero');
 
     // ==========================================
     // 🚀 3. VIEW TRANSITION & FLIGHT CONTROLLER
     // ==========================================
-    let isSurfaceMode = false;
-    let isHazardMapActive = false;
-    let isWireframeActive = false;
-    let isAutoRotating = false;
-    let pathLine = null;
-    let commsLine = null;
-
     function toggleAutoRotation() {
       isAutoRotating = !isAutoRotating;
       const btn = document.getElementById('btnRotateToggle');
@@ -653,8 +653,6 @@
         stateEl.style.color = isAutoRotating ? '#38bdf8' : '#94a3b8';
       }
     }
-
-    let isTransitioning = false;
 
     function triggerLODSurfaceTransition(onDone = null) {
       if (isTransitioning) return;
@@ -804,7 +802,7 @@
 
     // Toggle Slope Hazard Heatmap
     function toggleHazardMap() {
-      if (!isSurfaceMode) flyToSurfaceJezero();
+      if (!isSurfaceMode) flyToSurfaceMode();
       isHazardMapActive = !isHazardMapActive;
       document.getElementById('btnHazardToggle').classList.toggle('active', isHazardMapActive);
       document.getElementById('legendCard').style.display = isHazardMapActive ? 'flex' : 'none';
