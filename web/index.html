@@ -40,12 +40,15 @@
     /* Top Right Flight & View Controls */
     .controls-panel {
       position: absolute; top: 20px; right: 24px; z-index: 100;
-      background: rgba(10, 14, 23, 0.9); backdrop-filter: blur(14px);
+      background: rgba(10, 14, 23, 0.92); backdrop-filter: blur(14px);
       border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px;
-      padding: 18px 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.8);
-      display: flex; flex-direction: column; gap: 10px; width: 270px;
+      padding: 16px 18px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85);
+      display: flex; flex-direction: column; gap: 8px; width: 285px;
+      max-height: 86vh; overflow-y: auto;
     }
-    .panel-header { font-size: 0.72rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+    .controls-panel::-webkit-scrollbar { width: 4px; }
+    .controls-panel::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+    .panel-header { font-size: 0.68rem; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
 
     .hud-btn {
       background: rgba(30, 41, 59, 0.75); border: 1px solid rgba(255, 255, 255, 0.1);
@@ -57,6 +60,7 @@
     .hud-btn.active { background: rgba(255, 95, 60, 0.3); border-color: #ff6b4a; color: #ff8c73; }
     .hud-btn.highlight { background: rgba(56, 189, 248, 0.15); border-color: rgba(56, 189, 248, 0.4); color: #38bdf8; }
     .hud-btn.highlight:hover { background: rgba(56, 189, 248, 0.3); color: #fff; }
+    .hud-btn.active-sector { background: rgba(56, 189, 248, 0.22); border-color: #38bdf8; color: #38bdf8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.35); }
 
     /* Bottom Telemetry Bar */
     .telemetry-strip {
@@ -129,22 +133,50 @@
       <i class="fa-solid fa-check" id="checkSurface" style="display: none;"></i>
     </button>
 
-    <div class="panel-header" style="margin-top: 6px;">Iconic Science Sites</div>
-    <button class="hud-btn highlight" onclick="flyToSector('jezero')">
+    <div class="panel-header">Active Rovers &amp; Landers</div>
+    <button class="hud-btn" data-sector="jezero" onclick="flyToSector('jezero')">
       <span>🎯 Jezero Crater</span>
-      <small>Perseverance // Delta Fan</small>
+      <small>Perseverance // Delta</small>
     </button>
-    <button class="hud-btn" onclick="flyToSector('gale')">
+    <button class="hud-btn" data-sector="gale" onclick="flyToSector('gale')">
       <span>🤖 Gale Crater</span>
-      <small>Curiosity // Mount Sharp</small>
+      <small>Curiosity // Mt. Sharp</small>
     </button>
-    <button class="hud-btn" onclick="flyToSector('olympus')">
+    <button class="hud-btn" data-sector="utopia" onclick="flyToSector('utopia')">
+      <span>🇨🇳 Utopia Planitia</span>
+      <small>Zhurong // Subsurface Ice</small>
+    </button>
+    <button class="hud-btn" data-sector="elysium" onclick="flyToSector('elysium')">
+      <span>⚡ Elysium Planitia</span>
+      <small>InSight // Marsquakes</small>
+    </button>
+
+    <div class="panel-header">Planetary Wonders &amp; Ice</div>
+    <button class="hud-btn" data-sector="olympus" onclick="flyToSector('olympus')">
       <span>🌋 Olympus Mons</span>
       <small>Caldera Complex // 21.9km</small>
     </button>
-    <button class="hud-btn" onclick="flyToSector('valles')">
+    <button class="hud-btn" data-sector="valles" onclick="flyToSector('valles')">
       <span>🏜️ Valles Marineris</span>
       <small>Candor Chasma // 7km Wall</small>
+    </button>
+    <button class="hud-btn" data-sector="korolev" onclick="flyToSector('korolev')">
+      <span>❄️ Korolev Crater</span>
+      <small>ESA // 1.8km Pure Water Ice</small>
+    </button>
+
+    <div class="panel-header">Historic Landmarks</div>
+    <button class="hud-btn" data-sector="meridiani" onclick="flyToSector('meridiani')">
+      <span>🫐 Meridiani Planum</span>
+      <small>Opportunity // Blueberries</small>
+    </button>
+    <button class="hud-btn" data-sector="gusev" onclick="flyToSector('gusev')">
+      <span>🧭 Gusev Crater</span>
+      <small>Spirit // Columbia Hills</small>
+    </button>
+    <button class="hud-btn" data-sector="chryse" onclick="flyToSector('chryse')">
+      <span>🛰️ Chryse Planitia</span>
+      <small>Viking 1 // 1976 Historic</small>
     </button>
 
     <div class="panel-header" style="margin-top: 6px;">Orbit Controls</div>
@@ -304,8 +336,14 @@
     const landingSites = [
       { id: "jezero", name: "Jezero Crater (Perseverance)", lat: 18.38, lon: 77.58, color: 0x38bdf8 },
       { id: "gale", name: "Gale Crater (Curiosity)", lat: -4.58, lon: 137.44, color: 0x4ade80 },
+      { id: "utopia", name: "Utopia Planitia (Zhurong)", lat: 25.07, lon: 109.93, color: 0x06b6d4 },
+      { id: "elysium", name: "Elysium Planitia (InSight)", lat: 4.50, lon: 135.62, color: 0x10b981 },
       { id: "olympus", name: "Olympus Mons (Caldera)", lat: 18.65, lon: 226.2, color: 0xf59e0b },
-      { id: "valles", name: "Valles Marineris (Candor Chasma)", lat: -14.0, lon: 285.0, color: 0xec4899 }
+      { id: "valles", name: "Valles Marineris (Candor Chasma)", lat: -14.0, lon: 285.0, color: 0xec4899 },
+      { id: "korolev", name: "Korolev Glacier Crater", lat: 72.77, lon: 164.56, color: 0x93c5fd },
+      { id: "meridiani", name: "Meridiani Planum (Opportunity)", lat: -1.95, lon: 354.47, color: 0xa855f7 },
+      { id: "gusev", name: "Gusev Crater (Spirit)", lat: -14.57, lon: 175.48, color: 0xeab308 },
+      { id: "chryse", name: "Chryse Planitia (Viking 1)", lat: 22.27, lon: 312.05, color: 0xf97316 }
     ];
 
     const beaconMeshes = [];
@@ -448,6 +486,159 @@
           { name: "North Wall (7km Vertical)", x: 0, z: -220, color: 0xef4444 },
           { name: "South Canyon Rim Wall", x: 0, z: 220, color: 0xef4444 },
           { name: "Candor Chaos Landslide", x: 110, z: -50, color: 0xfbbf24 }
+        ]
+      },
+      utopia: {
+        id: 'utopia',
+        name: 'Utopia Planitia (Zhurong Landing)',
+        lat: 25.07, lon: 109.93,
+        sensor: 'HiRISE / Mozi DTM (0.7m/px)',
+        baseElev: -4100,
+        colorSand: new THREE.Color(0xd79164),
+        colorOchre: new THREE.Color(0xa05f3c),
+        colorBasalt: new THREE.Color(0x2d231e),
+        elevation: (x, y) => {
+          const dist = Math.sqrt(x * x + y * y);
+          const pitted = 18 * Math.sin(dist * 0.03);
+          const scalloped = -35 * Math.exp(-((x - 100) * (x - 100) + (y + 80) * (y + 80)) / 18000);
+          const mudCone = 40 * Math.exp(-((x - 120) * (x - 120) + (y - 110) * (y - 110)) / 6000);
+          const dunes = 8 * Math.sin(x * 0.15);
+          return -40 + pitted + scalloped + mudCone + dunes;
+        },
+        pois: [
+          { name: "Zhurong Rover Site", x: -70, z: 30, color: 0x38bdf8 },
+          { name: "Scalloped Ice Depression", x: 100, z: -80, color: 0x67e8f9 },
+          { name: "Transverse Aeolian Ridges", x: -150, z: -90, color: 0xeab308 },
+          { name: "Pitted Mud Volcano Cone", x: 120, z: 110, color: 0x4ade80 }
+        ]
+      },
+      elysium: {
+        id: 'elysium',
+        name: 'Elysium Planitia (InSight Seismic Hub)',
+        lat: 4.50, lon: 135.62,
+        sensor: 'HiRISE DTM (0.5m/px)',
+        baseElev: -2600,
+        colorSand: new THREE.Color(0xd28c5f),
+        colorOchre: new THREE.Color(0x9b5532),
+        colorBasalt: new THREE.Color(0x2a1e18),
+        elevation: (x, y) => {
+          const dist = Math.sqrt(x * x + y * y);
+          const plains = 8 * Math.sin(x * 0.02 + y * 0.01);
+          const fissureDist = Math.abs(y - 0.5 * x + 60);
+          const fissure = (fissureDist < 30) ? -65 * (1 - fissureDist / 30) : 0;
+          const distHollow = Math.sqrt((x - 40) * (x - 40) + (y - 80) * (y - 80));
+          const hollow = (distHollow < 60) ? -18 * (1 - Math.pow(distHollow / 60, 2)) : 0;
+          const microLava = Math.sin(x * 0.08) * Math.cos(y * 0.08) * 3;
+          return -20 + plains + fissure + hollow + microLava;
+        },
+        pois: [
+          { name: "InSight Lander Site", x: -60, z: 20, color: 0x38bdf8 },
+          { name: "Cerberus Fossae Fissures", x: 130, z: -90, color: 0xef4444 },
+          { name: "Young Athabasca Valles Basalt", x: -110, z: -120, color: 0x4ade80 },
+          { name: "Homestead Hollow", x: 40, z: 80, color: 0xfbbf24 }
+        ]
+      },
+      korolev: {
+        id: 'korolev',
+        name: 'Korolev Crater (1.8km Pure Water Ice Glacier)',
+        lat: 72.77, lon: 164.56,
+        sensor: 'HRSC Polar DTM (12.5m/px)',
+        baseElev: -3900,
+        colorSand: new THREE.Color(0xebf5ff),
+        colorOchre: new THREE.Color(0xb4c8dc),
+        colorBasalt: new THREE.Color(0x323c46),
+        elevation: (x, y) => {
+          const dist = Math.sqrt(x * x + y * y);
+          const rim = 180 * Math.pow(Math.max(0, (dist - 280) / 320), 2);
+          let glacier = 0;
+          if (dist < 260) {
+            glacier = 160 * (1 - Math.pow(dist / 260, 2));
+          }
+          const crevasses = (dist < 260) ? 8 * Math.sin(dist * 0.2) : 0;
+          return -120 + rim + glacier + crevasses;
+        },
+        pois: [
+          { name: "Central Glacial Dome", x: 0, z: 0, color: 0x67e8f9 },
+          { name: "Southern Crater Rim Crest", x: 0, z: -200, color: 0xef4444 },
+          { name: "Glacial Seracs & Crevasses", x: -110, z: 70, color: 0x38bdf8 },
+          { name: "Sublimation Moraine Margin", x: 130, z: 120, color: 0xa7f3d0 }
+        ]
+      },
+      meridiani: {
+        id: 'meridiani',
+        name: 'Meridiani Planum (Opportunity)',
+        lat: -1.95, lon: 354.47,
+        sensor: 'HiRISE DTM (0.5m/px)',
+        baseElev: -1400,
+        colorSand: new THREE.Color(0xbe825a),
+        colorOchre: new THREE.Color(0x914b2d),
+        colorBasalt: new THREE.Color(0x231914),
+        elevation: (x, y) => {
+          const plains = 5 * Math.sin(x * 0.015) + 4 * Math.cos(y * 0.02);
+          const distEndeavour = Math.sqrt((x - 80) * (x - 80) + (y - 40) * (y - 40));
+          const rimEndeavour = 60 * Math.pow(Math.max(0, (distEndeavour - 140) / 160), 2) * (distEndeavour < 320 ? 1 : 0);
+          const distVictoria = Math.sqrt((x + 40) * (x + 40) + (y - 120) * (y - 120));
+          const craterVictoria = (distVictoria < 90) ? -55 * (1 - Math.pow(distVictoria / 90, 2)) : 0;
+          const distEagle = Math.sqrt((x + 160) * (x + 160) + (y + 100) * (y + 100));
+          const craterEagle = (distEagle < 45) ? -25 * (1 - Math.pow(distEagle / 45, 2)) : 0;
+          return -30 + plains + rimEndeavour + craterVictoria + craterEagle;
+        },
+        pois: [
+          { name: "Eagle Crater (Landing)", x: -160, z: -100, color: 0x38bdf8 },
+          { name: "Endeavour Crater Rim", x: 80, z: 40, color: 0xf59e0b },
+          { name: "Victoria Crater Promontories", x: -40, z: 120, color: 0xec4899 },
+          { name: "Hematite Spherule Field", x: 110, z: -60, color: 0x60a5fa }
+        ]
+      },
+      gusev: {
+        id: 'gusev',
+        name: 'Gusev Crater (Spirit & Columbia Hills)',
+        lat: -14.57, lon: 175.48,
+        sensor: 'HiRISE/CTX DTM (1.0m/px)',
+        baseElev: -1900,
+        colorSand: new THREE.Color(0xb97d55),
+        colorOchre: new THREE.Color(0x8c4628),
+        colorBasalt: new THREE.Color(0x1e1612),
+        elevation: (x, y) => {
+          const distHusband = Math.sqrt((x - 20) * (x - 20) + (y + 20) * (y + 20));
+          const husbandHill = 160 * Math.exp(-(distHusband * distHusband) / 22000);
+          const distPlateau = Math.sqrt((x + 90) * (x + 90) + (y - 80) * (y - 80));
+          const homePlate = (distPlateau < 70) ? 35 : 0;
+          const distBonneville = Math.sqrt((x - 120) * (x - 120) + (y + 110) * (y + 110));
+          const bonneville = (distBonneville < 50) ? -40 * (1 - Math.pow(distBonneville / 50, 2)) : 0;
+          const regolith = Math.sin(x * 0.05) * Math.cos(y * 0.05) * 6;
+          return -50 + husbandHill + homePlate + bonneville + regolith;
+        },
+        pois: [
+          { name: "Husband Hill Summit", x: 20, z: -20, color: 0xf59e0b },
+          { name: "Home Plate Plateau", x: -90, z: 80, color: 0xfbbf24 },
+          { name: "Gertrude Weise Silica Vent", x: -50, z: 130, color: 0x38bdf8 },
+          { name: "Bonneville Crater", x: 120, z: -110, color: 0xef4444 }
+        ]
+      },
+      chryse: {
+        id: 'chryse',
+        name: 'Chryse Planitia (Viking 1 Historic Site)',
+        lat: 22.27, lon: 312.05,
+        sensor: 'HRSC / CTX DTM (6.0m/px)',
+        baseElev: -1500,
+        colorSand: new THREE.Color(0xcd875a),
+        colorOchre: new THREE.Color(0x965030),
+        colorBasalt: new THREE.Color(0x261c16),
+        elevation: (x, y) => {
+          const channel = -45 * Math.sin(y * 0.015);
+          const dx = x - 140;
+          const dy = y - 80;
+          const island = 95 * Math.exp(-(dx * dx + dy * dy * 3) / 18000);
+          const boulders = Math.sin(x * 0.12) * Math.cos(y * 0.12) * 9;
+          const duneDrifts = 10 * Math.sin(x * 0.04);
+          return -35 + channel + island + boulders + duneDrifts;
+        },
+        pois: [
+          { name: "Thomas A. Mutch Station (Viking 1)", x: -80, z: -40, color: 0x38bdf8 },
+          { name: "Kasei Valles Outflow Island", x: 140, z: 80, color: 0x4ade80 },
+          { name: "Big Joe Boulder Field", x: 30, z: 110, color: 0xef4444 },
+          { name: "Transverse Dust Drifts", x: -120, z: 90, color: 0xeab308 }
         ]
       }
     };
@@ -716,6 +907,10 @@
       document.getElementById('statEta').innerText = 'STANDBY';
       document.getElementById('legendCard').style.display = 'none';
 
+      document.querySelectorAll('.controls-panel button[data-sector]').forEach(b => {
+        b.classList.remove('active-sector');
+      });
+
       // Animate Camera to Orbit Distance
       animateCameraFlight(new THREE.Vector3(0, 350, 950), new THREE.Vector3(0, 0, 0), 1600, onComplete);
     }
@@ -735,6 +930,10 @@
       document.getElementById('checkSurface').style.display = 'inline';
       document.getElementById('checkOrbit').style.display = 'none';
 
+      document.querySelectorAll('.controls-panel button[data-sector]').forEach(b => {
+        b.classList.toggle('active-sector', b.dataset.sector === sector.id);
+      });
+
       document.getElementById('viewModeText').innerText = `🏔️ TACTICAL SURFACE // ${sector.name.toUpperCase()}`;
       document.getElementById('statTarget').innerText = sector.name.toUpperCase();
       document.getElementById('statCoords').innerText = `${sector.lat}°N, ${sector.lon}°E`;
@@ -752,6 +951,10 @@
       document.getElementById('statCoords').innerText = `${sector.lat}°N, ${sector.lon}°E`;
       document.getElementById('statSensor').innerText = sector.sensor;
 
+      document.querySelectorAll('.controls-panel button[data-sector]').forEach(b => {
+        b.classList.toggle('active-sector', b.dataset.sector === sector.id);
+      });
+
       rebuildSurfaceForSector(sector.id);
 
       if (!isSurfaceMode) {
@@ -760,6 +963,7 @@
           triggerLODSurfaceTransition();
         });
       } else {
+        document.getElementById('viewModeText').innerText = `🏔️ TACTICAL SURFACE // ${sector.name.toUpperCase()}`;
         animateCameraFlight(new THREE.Vector3(0, 320, 480), new THREE.Vector3(0, 0, 0), 1200);
       }
     }
@@ -793,8 +997,8 @@
         if (p < 1.0) {
           requestAnimationFrame(update);
         } else {
+          isTransitioning = false;
           if (onComplete) onComplete();
-          else setTimeout(() => { isTransitioning = false; }, 200);
         }
       }
       requestAnimationFrame(update);

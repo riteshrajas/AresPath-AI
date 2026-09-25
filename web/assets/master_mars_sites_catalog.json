@@ -1,0 +1,769 @@
+{
+  "jezero": {
+    "id": "jezero",
+    "name": "Jezero Crater Western Fan",
+    "agency": "NASA",
+    "missions": [
+      "Perseverance Rover",
+      "Ingenuity Helicopter"
+    ],
+    "lat": 18.38,
+    "lon": 77.58,
+    "sensor": "HiRISE DTM (0.5m/px)",
+    "base_datum_m": -2540.0,
+    "elevation_min_m": -2550.9,
+    "elevation_max_m": -2352.9,
+    "elevation_range_m": 197.9,
+    "safe_terrain_pct": 3.7,
+    "hazard_terrain_pct": 81.0,
+    "mesh_file": "jezero_mesh.obj",
+    "terrain_rgb_file": "jezero_terrain_rgb.png",
+    "hazard_file": "jezero_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        201,
+        122,
+        83
+      ],
+      "ochre": [
+        166,
+        82,
+        51
+      ],
+      "basalt": [
+        56,
+        40,
+        34
+      ]
+    },
+    "desc": "Ancient river delta and paleolake bed caching bio-signature core samples.",
+    "pois": [
+      {
+        "id": "jezero_perseverance",
+        "name": "Perseverance Rover",
+        "x": -80,
+        "z": 25,
+        "type": "rover",
+        "color": "#38bdf8",
+        "desc": "Octavia E. Butler Landing \u2014 sample cache operations"
+      },
+      {
+        "id": "jezero_kodiak",
+        "name": "Kodiak Butte",
+        "x": -180,
+        "z": 110,
+        "type": "science",
+        "color": "#fbbf24",
+        "desc": "Sedimentary mesa with deltaic bottomset/foreset layering"
+      },
+      {
+        "id": "jezero_belva",
+        "name": "Belva Crater",
+        "x": 140,
+        "z": -120,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "1.0 km impact crater exposing layered bedrock"
+      },
+      {
+        "id": "jezero_inlet",
+        "name": "Neretva Vallis Inlet",
+        "x": -240,
+        "z": -40,
+        "type": "science",
+        "color": "#4ade80",
+        "desc": "Ancient river breach channel feeding Jezero lake"
+      }
+    ]
+  },
+  "gale": {
+    "id": "gale",
+    "name": "Gale Crater & Mount Sharp",
+    "agency": "NASA",
+    "missions": [
+      "MSL Curiosity Rover"
+    ],
+    "lat": -4.58,
+    "lon": 137.44,
+    "sensor": "HiRISE/CTX DTM (1.0m/px)",
+    "base_datum_m": -4500.0,
+    "elevation_min_m": -4625.3,
+    "elevation_max_m": -4021.0,
+    "elevation_range_m": 604.3,
+    "safe_terrain_pct": 0.6,
+    "hazard_terrain_pct": 97.3,
+    "mesh_file": "gale_mesh.obj",
+    "terrain_rgb_file": "gale_terrain_rgb.png",
+    "hazard_file": "gale_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        176,
+        128,
+        96
+      ],
+      "ochre": [
+        140,
+        80,
+        53
+      ],
+      "basalt": [
+        40,
+        32,
+        28
+      ]
+    },
+    "desc": "5.5 km tall central sedimentary mound (Aeolis Mons) with ancient water history.",
+    "pois": [
+      {
+        "id": "gale_curiosity",
+        "name": "Bradbury Landing",
+        "x": -140,
+        "z": -90,
+        "type": "rover",
+        "color": "#38bdf8",
+        "desc": "MSL Curiosity touchdown site (Aug 2012)"
+      },
+      {
+        "id": "gale_peak",
+        "name": "Mount Sharp Peak",
+        "x": 0,
+        "z": 0,
+        "type": "summit",
+        "color": "#f59e0b",
+        "desc": "Aeolis Mons central sedimentary peak (5.5 km)"
+      },
+      {
+        "id": "gale_ridge",
+        "name": "Vera Rubin Ridge",
+        "x": -70,
+        "z": 60,
+        "type": "science",
+        "color": "#ec4899",
+        "desc": "Hematite-rich resistant bedrock ridge"
+      },
+      {
+        "id": "gale_gediz",
+        "name": "Gediz Vallis Channel",
+        "x": 50,
+        "z": 130,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "Catastrophic debris flow channel with boulders"
+      }
+    ]
+  },
+  "olympus": {
+    "id": "olympus",
+    "name": "Olympus Mons Summit Caldera",
+    "agency": "Global Benchmark",
+    "missions": [
+      "MGS",
+      "Mars Express",
+      "MRO"
+    ],
+    "lat": 18.65,
+    "lon": 226.2,
+    "sensor": "HRSC / MOLA DTM (12.5m/px)",
+    "base_datum_m": 18000.0,
+    "elevation_min_m": 17199.3,
+    "elevation_max_m": 19314.8,
+    "elevation_range_m": 2115.6,
+    "safe_terrain_pct": 0.0,
+    "hazard_terrain_pct": 99.8,
+    "mesh_file": "olympus_mesh.obj",
+    "terrain_rgb_file": "olympus_terrain_rgb.png",
+    "hazard_file": "olympus_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        204,
+        102,
+        68
+      ],
+      "ochre": [
+        153,
+        68,
+        34
+      ],
+      "basalt": [
+        32,
+        21,
+        21
+      ]
+    },
+    "desc": "Largest shield volcano in Solar System, rising 21.9 km above datum with nested calderas.",
+    "pois": [
+      {
+        "id": "olympus_caldera",
+        "name": "Caldera Central Floor",
+        "x": 0,
+        "z": 0,
+        "type": "summit",
+        "color": "#fbbf24",
+        "desc": "Floor of 80 km wide nested volcanic collapse structure"
+      },
+      {
+        "id": "olympus_rim",
+        "name": "South Rim Wall",
+        "x": 0,
+        "z": -180,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "3,200 m vertical caldera cliff face"
+      },
+      {
+        "id": "olympus_skylight",
+        "name": "Lava Tube Skylight",
+        "x": -130,
+        "z": 80,
+        "type": "shelter",
+        "color": "#38bdf8",
+        "desc": "Subterranean lava conduit for cosmic radiation shelter"
+      },
+      {
+        "id": "olympus_lava",
+        "name": "Northwest Lava Flow",
+        "x": 120,
+        "z": 140,
+        "type": "science",
+        "color": "#4ade80",
+        "desc": "Pahoehoe basalt flow lobes with low slope grade"
+      }
+    ]
+  },
+  "valles": {
+    "id": "valles",
+    "name": "Valles Marineris (Candor Chasma)",
+    "agency": "Global Benchmark",
+    "missions": [
+      "Viking",
+      "Mars Express",
+      "MRO"
+    ],
+    "lat": -14.0,
+    "lon": 285.0,
+    "sensor": "HRSC / CTX Stereo DTM (12.5m/px)",
+    "base_datum_m": -4200.0,
+    "elevation_min_m": -4200.0,
+    "elevation_max_m": 2810.1,
+    "elevation_range_m": 7010.1,
+    "safe_terrain_pct": 51.4,
+    "hazard_terrain_pct": 48.0,
+    "mesh_file": "valles_mesh.obj",
+    "terrain_rgb_file": "valles_terrain_rgb.png",
+    "hazard_file": "valles_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        217,
+        136,
+        85
+      ],
+      "ochre": [
+        138,
+        58,
+        34
+      ],
+      "basalt": [
+        26,
+        18,
+        16
+      ]
+    },
+    "desc": "The Grand Canyon of Mars, spanning 4,000 km with sheer 7 km vertical walls.",
+    "pois": [
+      {
+        "id": "valles_floor",
+        "name": "Chasma Basin Floor",
+        "x": 0,
+        "z": 0,
+        "type": "science",
+        "color": "#4ade80",
+        "desc": "Canyon trough with ancient hydrated sulfate deposits"
+      },
+      {
+        "id": "valles_north",
+        "name": "North Wall (7km Vertical)",
+        "x": 0,
+        "z": -220,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "7,000 m sheer cliff exposing Martian crustal stratigraphy"
+      },
+      {
+        "id": "valles_south",
+        "name": "South Canyon Rim Wall",
+        "x": 0,
+        "z": 220,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "Towering opposing southern plateau rim"
+      },
+      {
+        "id": "valles_chaos",
+        "name": "Candor Chaos Landslide",
+        "x": 110,
+        "z": -50,
+        "type": "science",
+        "color": "#fbbf24",
+        "desc": "Giant rock avalanche deposit with megablocks"
+      }
+    ]
+  },
+  "utopia": {
+    "id": "utopia",
+    "name": "Utopia Planitia (Zhurong Landing)",
+    "agency": "CNSA",
+    "missions": [
+      "Tianwen-1 Lander",
+      "Zhurong Rover"
+    ],
+    "lat": 25.07,
+    "lon": 109.93,
+    "sensor": "HiRISE / Mozi DTM (0.7m/px)",
+    "base_datum_m": -4100.0,
+    "elevation_min_m": -4139.1,
+    "elevation_max_m": -4076.0,
+    "elevation_range_m": 63.1,
+    "safe_terrain_pct": 4.0,
+    "hazard_terrain_pct": 84.7,
+    "mesh_file": "utopia_mesh.obj",
+    "terrain_rgb_file": "utopia_terrain_rgb.png",
+    "hazard_file": "utopia_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        215,
+        145,
+        100
+      ],
+      "ochre": [
+        160,
+        95,
+        60
+      ],
+      "basalt": [
+        45,
+        35,
+        30
+      ]
+    },
+    "desc": "Vast northern plains with evidence of ancient ocean shores and massive subsurface ice sheets.",
+    "pois": [
+      {
+        "id": "utopia_zhurong",
+        "name": "Zhurong Rover Site",
+        "x": -70,
+        "z": 30,
+        "type": "rover",
+        "color": "#38bdf8",
+        "desc": "Tianwen-1 touchdown site (May 2021) with subsurface radar"
+      },
+      {
+        "id": "utopia_ice",
+        "name": "Scalloped Ice Depression",
+        "x": 100,
+        "z": -80,
+        "type": "science",
+        "color": "#67e8f9",
+        "desc": "Ground sublimation feature indicating pure subsurface ice"
+      },
+      {
+        "id": "utopia_dune",
+        "name": "Transverse Aeolian Ridges",
+        "x": -150,
+        "z": -90,
+        "type": "hazard",
+        "color": "#eab308",
+        "desc": "Active dark sand dune fields with high rover wheel slip"
+      },
+      {
+        "id": "utopia_cone",
+        "name": "Pitted Mud Volcano Cone",
+        "x": 120,
+        "z": 110,
+        "type": "science",
+        "color": "#4ade80",
+        "desc": "Sedimentary mud volcanism structure from ancient subsurface slush"
+      }
+    ]
+  },
+  "meridiani": {
+    "id": "meridiani",
+    "name": "Meridiani Planum (Opportunity)",
+    "agency": "NASA",
+    "missions": [
+      "MER-B Opportunity Rover"
+    ],
+    "lat": -1.95,
+    "lon": 354.47,
+    "sensor": "HiRISE DTM (0.5m/px)",
+    "base_datum_m": -1400.0,
+    "elevation_min_m": -1422.7,
+    "elevation_max_m": -1328.0,
+    "elevation_range_m": 94.7,
+    "safe_terrain_pct": 89.9,
+    "hazard_terrain_pct": 9.3,
+    "mesh_file": "meridiani_mesh.obj",
+    "terrain_rgb_file": "meridiani_terrain_rgb.png",
+    "hazard_file": "meridiani_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        190,
+        130,
+        90
+      ],
+      "ochre": [
+        145,
+        75,
+        45
+      ],
+      "basalt": [
+        35,
+        25,
+        20
+      ]
+    },
+    "desc": "Vast hematite-rich plains where Opportunity discovered hematite 'blueberries' and sulfate evaporites.",
+    "pois": [
+      {
+        "id": "meridiani_eagle",
+        "name": "Eagle Crater (Landing)",
+        "x": -160,
+        "z": -100,
+        "type": "rover",
+        "color": "#38bdf8",
+        "desc": "Opportunity hole-in-one landing crater discovering outcrop"
+      },
+      {
+        "id": "meridiani_endeavour",
+        "name": "Endeavour Crater Rim",
+        "x": 80,
+        "z": 40,
+        "type": "summit",
+        "color": "#f59e0b",
+        "desc": "22 km ancient impact crater with clay minerals at Cape York"
+      },
+      {
+        "id": "meridiani_victoria",
+        "name": "Victoria Crater Promontories",
+        "x": -40,
+        "z": 120,
+        "type": "science",
+        "color": "#ec4899",
+        "desc": "800m scalloped crater with dramatic cliff viewpoints"
+      },
+      {
+        "id": "meridiani_blueberries",
+        "name": "Hematite Spherule Field",
+        "x": 110,
+        "z": -60,
+        "type": "science",
+        "color": "#60a5fa",
+        "desc": "Dense concentration of mineral blueberries formed in acidic water"
+      }
+    ]
+  },
+  "gusev": {
+    "id": "gusev",
+    "name": "Gusev Crater (Spirit & Columbia Hills)",
+    "agency": "NASA",
+    "missions": [
+      "MER-A Spirit Rover"
+    ],
+    "lat": -14.57,
+    "lon": 175.48,
+    "sensor": "HiRISE/CTX DTM (1.0m/px)",
+    "base_datum_m": -1900.0,
+    "elevation_min_m": -1908.3,
+    "elevation_max_m": -1715.4,
+    "elevation_range_m": 193.0,
+    "safe_terrain_pct": 9.6,
+    "hazard_terrain_pct": 65.7,
+    "mesh_file": "gusev_mesh.obj",
+    "terrain_rgb_file": "gusev_terrain_rgb.png",
+    "hazard_file": "gusev_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        185,
+        125,
+        85
+      ],
+      "ochre": [
+        140,
+        70,
+        40
+      ],
+      "basalt": [
+        30,
+        22,
+        18
+      ]
+    },
+    "desc": "166 km crater featuring Columbia Hills with preserved hydrothermal silica and fumarole vents.",
+    "pois": [
+      {
+        "id": "gusev_columbia",
+        "name": "Husband Hill Summit",
+        "x": 20,
+        "z": -20,
+        "type": "summit",
+        "color": "#f59e0b",
+        "desc": "Summit reached by Spirit rover offering 360-degree panorama"
+      },
+      {
+        "id": "gusev_homeplate",
+        "name": "Home Plate Plateau",
+        "x": -90,
+        "z": 80,
+        "type": "science",
+        "color": "#fbbf24",
+        "desc": "Layered volcanic ash and hydrothermal deposit"
+      },
+      {
+        "id": "gusev_silica",
+        "name": "Gertrude Weise Silica Vent",
+        "x": -50,
+        "z": 130,
+        "type": "science",
+        "color": "#38bdf8",
+        "desc": "90% pure opaline silica uncovered by stuck rover wheel"
+      },
+      {
+        "id": "gusev_bonneville",
+        "name": "Bonneville Crater",
+        "x": 120,
+        "z": -110,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "200m impact crater surrounded by heat shield debris"
+      }
+    ]
+  },
+  "elysium": {
+    "id": "elysium",
+    "name": "Elysium Planitia (InSight Seismic Hub)",
+    "agency": "NASA / CNES / DLR",
+    "missions": [
+      "InSight Mars Lander"
+    ],
+    "lat": 4.5,
+    "lon": 135.62,
+    "sensor": "HiRISE DTM (0.5m/px)",
+    "base_datum_m": -2600.0,
+    "elevation_min_m": -2654.0,
+    "elevation_max_m": -2595.5,
+    "elevation_range_m": 58.5,
+    "safe_terrain_pct": 96.1,
+    "hazard_terrain_pct": 3.9,
+    "mesh_file": "elysium_mesh.obj",
+    "terrain_rgb_file": "elysium_terrain_rgb.png",
+    "hazard_file": "elysium_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        210,
+        140,
+        95
+      ],
+      "ochre": [
+        155,
+        85,
+        50
+      ],
+      "basalt": [
+        42,
+        30,
+        24
+      ]
+    },
+    "desc": "Smooth volcanic plain hosting the InSight seismometer which recorded over 1,300 marsquakes.",
+    "pois": [
+      {
+        "id": "elysium_insight",
+        "name": "InSight Lander Site",
+        "x": -60,
+        "z": 20,
+        "type": "lander",
+        "color": "#38bdf8",
+        "desc": "SEIS seismometer and HP3 heat flow probe location"
+      },
+      {
+        "id": "elysium_cerberus",
+        "name": "Cerberus Fossae Fissures",
+        "x": 130,
+        "z": -90,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "Active tectonic faults sourcing magnitude 4-5 marsquakes"
+      },
+      {
+        "id": "elysium_flow",
+        "name": "Young Athabasca Valles Basalt",
+        "x": -110,
+        "z": -120,
+        "type": "science",
+        "color": "#4ade80",
+        "desc": "Geologically young lava flood (<20 million years)"
+      },
+      {
+        "id": "elysium_crater",
+        "name": "Homestead Hollow",
+        "x": 40,
+        "z": 80,
+        "type": "science",
+        "color": "#fbbf24",
+        "desc": "Degraded impact crater filled with fine-grained regolith"
+      }
+    ]
+  },
+  "chryse": {
+    "id": "chryse",
+    "name": "Chryse Planitia (Viking 1 Historic Site)",
+    "agency": "NASA",
+    "missions": [
+      "Viking 1 Lander"
+    ],
+    "lat": 22.27,
+    "lon": 312.05,
+    "sensor": "HRSC / CTX DTM (6.0m/px)",
+    "base_datum_m": -1500.0,
+    "elevation_min_m": -1586.5,
+    "elevation_max_m": -1476.2,
+    "elevation_range_m": 110.3,
+    "safe_terrain_pct": 0.1,
+    "hazard_terrain_pct": 96.4,
+    "mesh_file": "chryse_mesh.obj",
+    "terrain_rgb_file": "chryse_terrain_rgb.png",
+    "hazard_file": "chryse_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        205,
+        135,
+        90
+      ],
+      "ochre": [
+        150,
+        80,
+        48
+      ],
+      "basalt": [
+        38,
+        28,
+        22
+      ]
+    },
+    "desc": "First successful long-term operational landing site on Mars (July 1976), carved by ancient floodwaters.",
+    "pois": [
+      {
+        "id": "chryse_viking1",
+        "name": "Thomas A. Mutch Memorial Station",
+        "x": -80,
+        "z": -40,
+        "type": "lander",
+        "color": "#38bdf8",
+        "desc": "Viking 1 touchdown site \u2014 first color surface photos of Mars"
+      },
+      {
+        "id": "chryse_outflow",
+        "name": "Kasei Valles Catastrophic Channel",
+        "x": 140,
+        "z": 80,
+        "type": "science",
+        "color": "#4ade80",
+        "desc": "Streamlined tear-drop island carved by megaflood discharges"
+      },
+      {
+        "id": "chryse_boulders",
+        "name": "Big Joe Boulder Field",
+        "x": 30,
+        "z": 110,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "Massive 2-meter basalt erratic block 8m from Viking 1"
+      },
+      {
+        "id": "chryse_dunes",
+        "name": "Transverse Dust Drifts",
+        "x": -120,
+        "z": 90,
+        "type": "hazard",
+        "color": "#eab308",
+        "desc": "Crescentic barchan dust drifts active during dust storms"
+      }
+    ]
+  },
+  "korolev": {
+    "id": "korolev",
+    "name": "Korolev Crater (1.8km Pure Water Ice Glacier)",
+    "agency": "ESA",
+    "missions": [
+      "Mars Express HRSC",
+      "TGO CaSSIS"
+    ],
+    "lat": 72.77,
+    "lon": 164.56,
+    "sensor": "HRSC Polar DTM (12.5m/px)",
+    "base_datum_m": -3900.0,
+    "elevation_min_m": -3982.5,
+    "elevation_max_m": -2280.0,
+    "elevation_range_m": 1702.5,
+    "safe_terrain_pct": 37.2,
+    "hazard_terrain_pct": 62.3,
+    "mesh_file": "korolev_mesh.obj",
+    "terrain_rgb_file": "korolev_terrain_rgb.png",
+    "hazard_file": "korolev_slope_hazard.png",
+    "color_palette": {
+      "sand": [
+        235,
+        245,
+        255
+      ],
+      "ochre": [
+        180,
+        200,
+        220
+      ],
+      "basalt": [
+        50,
+        60,
+        70
+      ]
+    },
+    "desc": "81 km wide impact crater filled with a permanent cold-trap glacier of 2,200 cubic km of water ice!",
+    "pois": [
+      {
+        "id": "korolev_glacier",
+        "name": "Central Glacial Dome",
+        "x": 0,
+        "z": 0,
+        "type": "ice",
+        "color": "#67e8f9",
+        "desc": "1.8 km thick pure water ice sheet preserved by cold-trap air"
+      },
+      {
+        "id": "korolev_rim",
+        "name": "Southern Crater Rim Crest",
+        "x": 0,
+        "z": -200,
+        "type": "hazard",
+        "color": "#ef4444",
+        "desc": "2,000 m steep crater wall dropping into glacial basin"
+      },
+      {
+        "id": "korolev_crevasse",
+        "name": "Glacial Seracs & Crevasses",
+        "x": -110,
+        "z": 70,
+        "type": "hazard",
+        "color": "#38bdf8",
+        "desc": "Thermal stress fractures in pure ice sheet"
+      },
+      {
+        "id": "korolev_outflow",
+        "name": "Sublimation Moraine Margin",
+        "x": 130,
+        "z": 120,
+        "type": "science",
+        "color": "#a7f3d0",
+        "desc": "Basaltic dust moraine protecting glacier edges from evaporation"
+      }
+    ]
+  }
+}
