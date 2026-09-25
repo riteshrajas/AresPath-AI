@@ -332,7 +332,9 @@
     function createAstronautMarker() {
       const group = new THREE.Group();
       // Suit body
-      const bodyGeo = new THREE.CapsuleGeometry ? new THREE.CapsuleGeometry(3, 7, 4, 8) : new THREE.CylinderGeometry(3, 3, 10, 8);
+      const bodyGeo = (typeof THREE.CapsuleGeometry !== 'undefined')
+        ? new THREE.CapsuleGeometry(3, 7, 4, 8)
+        : new THREE.CylinderGeometry(2.5, 2.5, 8, 12);
       const suitMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.4 });
       const body = new THREE.Mesh(bodyGeo, suitMat);
       body.castShadow = true;
