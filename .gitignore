@@ -1,0 +1,35 @@
+# Node / Web
+node_modules/
+dist/
+build/
+.cache/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# Large Datasets / GIS / Point Clouds
+data/
+*.JP2
+*.jp2
+*.IMG
+*.img
+*.tif
+*.tiff
+*.ply
+*.obj
+*.glb
+*.gltf
+*.las
+*.laz
+*.terrain
+
+# OS & Temp
+.DS_Store
+Thumbs.db
+*.log
+suplimental resources
