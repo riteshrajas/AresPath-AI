@@ -173,7 +173,7 @@
     </div>
     <div class="stat-col">
       <span class="stat-label">Active Sensor</span>
-      <span class="stat-val" id="statSensor">VIKING MDIM2.1 (230m)</span>
+      <span class="stat-val" id="statSensor">NASA 8K ULTRA-HD (8192×4096)</span>
     </div>
     <div class="stat-col">
       <span class="stat-label">Comms Line-of-Sight</span>
@@ -247,15 +247,19 @@
     const MARS_RADIUS = 280;
     const marsGeo = new THREE.SphereGeometry(MARS_RADIUS, 64, 64);
 
-    // Load High-Res NASA 2K Mars Surface Texture
+    // Load Ultra-HD 8K (8192x4096) NASA/Orbiter Mars Surface Texture
     const textureLoader = new THREE.TextureLoader();
-    const marsTexture = textureLoader.load('assets/mars_globe_2k.jpg', () => {
+    const marsTexture = textureLoader.load('assets/mars_globe_8k.jpg', (texture) => {
+      texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      texture.generateMipmaps = true;
+      texture.minFilter = THREE.LinearMipmapLinearFilter;
+      texture.magFilter = THREE.LinearFilter;
       renderer.render(scene, camera);
     });
 
     const marsMat = new THREE.MeshStandardMaterial({
       map: marsTexture,
-      roughness: 0.9,
+      roughness: 0.88,
       metalness: 0.05
     });
 
@@ -462,7 +466,7 @@
       document.getElementById('viewModeText').innerText = '🪐 GLOBAL PLANETARY ORBIT';
       document.getElementById('statTarget').innerText = 'PLANET MARS [AREOID]';
       document.getElementById('statCoords').innerText = 'GLOBAL SYNOPTIC';
-      document.getElementById('statSensor').innerText = 'VIKING MDIM2.1 (230m)';
+      document.getElementById('statSensor').innerText = 'NASA 8K ULTRA-HD (8192×4096)';
       document.getElementById('statEta').innerText = 'STANDBY';
       document.getElementById('legendCard').style.display = 'none';
 
