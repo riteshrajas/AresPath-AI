@@ -105,9 +105,16 @@
 
   <!-- Instruction Bar -->
   <div class="hint-banner" id="hintBanner">
-    <span><span class="hint-key">Left Drag</span> Spin Planet / Orbit</span>
-    <span><span class="hint-key">Scroll</span> Zoom to Surface</span>
-    <span><span class="hint-key">Click Pin</span> Fly to Landing Site</span>
+    <span><span class="hint-key">Left Drag</span> Pan / Rotate</span>
+    <span><span class="hint-key">Scroll In</span> Zoom to Surface [LOD]</span>
+    <span><span class="hint-key">Double Click</span> 3D Terrain</span>
+    <span><span class="hint-key">Click Pin</span> Landing Site</span>
+  </div>
+
+  <!-- Dynamic LOD Photogrammetry Streaming Indicator -->
+  <div id="lodBanner" style="position: absolute; top: 68px; left: 50%; transform: translateX(-50%); z-index: 95; background: rgba(10, 15, 30, 0.94); backdrop-filter: blur(12px); border: 1px solid #38bdf8; border-radius: 20px; padding: 7px 20px; font-size: 0.74rem; color: #38bdf8; display: none; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);">
+    <i class="fa-solid fa-satellite-dish fa-fade"></i>
+    <span id="lodText">STREAMING HiRISE STEREO PHOTOGRAMMETRY (0.5m/px)...</span>
   </div>
 
   <!-- Top Right: Navigation & Layer Controls -->
@@ -210,7 +217,7 @@
     const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.minDistance = 30;
+    controls.minDistance = 295;
     controls.maxDistance = 6000;
 
     // --- LIGHTING ---
@@ -301,6 +308,7 @@
       { name: "Valles Marineris", lat: -14.0, lon: -75.0, color: 0xec4899 }
     ];
 
+    const beaconMeshes = [];
     landingSites.forEach(site => {
       const pos = latLonToVector3(site.lat, site.lon, MARS_RADIUS);
       
@@ -314,15 +322,17 @@
       pin.lookAt(pos.clone().multiplyScalar(2));
       globeGroup.add(pin);
 
-      // Beacon Head
-      const headGeo = new THREE.SphereGeometry(3.5, 12, 12);
+      // Beacon Head (interactive click target)
+      const headGeo = new THREE.SphereGeometry(4.5, 12, 12);
       const headMat = new THREE.MeshBasicMaterial({ color: site.color });
       const head = new THREE.Mesh(headGeo, headMat);
       head.position.copy(pos.clone().multiplyScalar(1.04));
+      head.userData = site;
       globeGroup.add(head);
+      beaconMeshes.push(head);
 
       // Pulsing Ring
-      const ringGeo = new THREE.RingGeometry(4, 7, 24);
+      const ringGeo = new THREE.RingGeometry(4, 8, 24);
       const ringMat = new THREE.MeshBasicMaterial({ color: site.color, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.copy(pos.clone().multiplyScalar(1.042));
@@ -471,10 +481,54 @@
       }
     }
 
-    function switchToOrbitView() {
+    let isTransitioning = false;
+
+    function triggerLODSurfaceTransition() {
+      if (isTransitioning || isSurfaceMode) return;
+      isTransitioning = true;
+      const banner = document.getElementById('lodBanner');
+      const text = document.getElementById('lodText');
+      if (banner && text) {
+        banner.style.display = 'flex';
+        text.innerHTML = '<i class="fa-solid fa-satellite-dish fa-fade"></i> STREAMING HiRISE STEREO PHOTOGRAMMETRY (0.5m/px)...';
+      }
+
+      flyToSurfaceJezero(() => {
+        if (text) {
+          text.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> HiRISE 3D RECONSTRUCTION COMPLETE (0.5m/px)';
+        }
+        setTimeout(() => {
+          if (banner) banner.style.display = 'none';
+          isTransitioning = false;
+        }, 1500);
+      });
+    }
+
+    function triggerLODOrbitTransition() {
+      if (isTransitioning || !isSurfaceMode) return;
+      isTransitioning = true;
+      const banner = document.getElementById('lodBanner');
+      const text = document.getElementById('lodText');
+      if (banner && text) {
+        banner.style.display = 'flex';
+        text.innerHTML = '<i class="fa-solid fa-satellite fa-fade"></i> ELEVATING TO PLANETARY ORBIT // 8K MOLA SYNOPTIC...';
+      }
+
+      switchToOrbitView(() => {
+        setTimeout(() => {
+          if (banner) banner.style.display = 'none';
+          isTransitioning = false;
+        }, 1000);
+      });
+    }
+
+    function switchToOrbitView(onComplete = null) {
       isSurfaceMode = false;
       surfaceGroup.visible = false;
       globeGroup.visible = true;
+
+      controls.minDistance = 295;
+      controls.maxDistance = 6000;
 
       document.getElementById('btnOrbitView').classList.add('active');
       document.getElementById('btnSurfaceView').classList.remove('active');
@@ -489,13 +543,16 @@
       document.getElementById('legendCard').style.display = 'none';
 
       // Animate Camera to Orbit Distance
-      animateCameraFlight(new THREE.Vector3(0, 350, 950), new THREE.Vector3(0, 0, 0), 1600);
+      animateCameraFlight(new THREE.Vector3(0, 350, 950), new THREE.Vector3(0, 0, 0), 1600, onComplete);
     }
 
-    function flyToSurfaceJezero() {
+    function flyToSurfaceJezero(onComplete = null) {
       isSurfaceMode = true;
       globeGroup.visible = false;
       surfaceGroup.visible = true;
+
+      controls.minDistance = 15;
+      controls.maxDistance = 1000;
 
       document.getElementById('btnSurfaceView').classList.add('active');
       document.getElementById('btnOrbitView').classList.remove('active');
@@ -508,7 +565,7 @@
       document.getElementById('statSensor').innerText = 'HiRISE DTM (0.5m/px)';
       document.getElementById('statEta').innerText = 'READY (CLICK SURFACE)';
 
-      animateCameraFlight(new THREE.Vector3(0, 320, 480), new THREE.Vector3(0, 0, 0), 1800);
+      animateCameraFlight(new THREE.Vector3(0, 320, 480), new THREE.Vector3(0, 0, 0), 1800, onComplete);
     }
 
     function flyToLocation(lat, lon, label) {
@@ -516,7 +573,7 @@
       document.getElementById('statCoords').innerText = `${lat}°N, ${lon}°E`;
 
       if (label.includes('Jezero')) {
-        flyToSurfaceJezero();
+        triggerLODSurfaceTransition();
       } else {
         // Rotate and zoom globe towards the selected coordinates
         const targetPos = latLonToVector3(lat, lon, MARS_RADIUS * 2.8);
@@ -524,7 +581,8 @@
       }
     }
 
-    function animateCameraFlight(targetCamPos, targetControlsTarget, duration = 1500) {
+    function animateCameraFlight(targetCamPos, targetControlsTarget, duration = 1500, onComplete = null) {
+      isTransitioning = true;
       const startCamPos = camera.position.clone();
       const startTarget = controls.target.clone();
       const startTime = performance.now();
@@ -540,6 +598,9 @@
 
         if (p < 1.0) {
           requestAnimationFrame(update);
+        } else {
+          if (onComplete) onComplete();
+          else setTimeout(() => { isTransitioning = false; }, 200);
         }
       }
       requestAnimationFrame(update);
@@ -571,17 +632,41 @@
     const mouse = new THREE.Vector2();
 
     window.addEventListener('click', (event) => {
-      if (!isSurfaceMode) return;
-      if (event.target.closest('.hud-panel') || event.target.closest('.controls-panel')) return;
+      if (event.target.closest('.hud-panel') || event.target.closest('.controls-panel') || event.target.closest('.hint-banner')) return;
 
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
 
-      const intersects = raycaster.intersectObject(terrainMesh);
-      if (intersects.length > 0) {
-        const targetPt = intersects[0].point;
-        planAresRoute(astronaut.position, targetPt);
+      if (!isSurfaceMode) {
+        // Check if user clicked a landing pin
+        const beaconHits = raycaster.intersectObjects(beaconMeshes);
+        if (beaconHits.length > 0) {
+          const site = beaconHits[0].object.userData;
+          flyToLocation(site.lat, site.lon, site.name);
+          return;
+        }
+      } else {
+        // Surface routing
+        const intersects = raycaster.intersectObject(terrainMesh);
+        if (intersects.length > 0) {
+          const targetPt = intersects[0].point;
+          planAresRoute(astronaut.position, targetPt);
+        }
+      }
+    });
+
+    // Double-click to zoom and reconstruct 3D terrain
+    window.addEventListener('dblclick', (event) => {
+      if (event.target.closest('.hud-panel') || event.target.closest('.controls-panel') || event.target.closest('.hint-banner')) return;
+      if (!isSurfaceMode) {
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObject(marsGlobe);
+        if (hits.length > 0) {
+          triggerLODSurfaceTransition();
+        }
       }
     });
 
@@ -644,6 +729,16 @@
       // Subtle planetary rotation when in orbit mode (disabled by default)
       if (!isSurfaceMode && isAutoRotating) {
         globeGroup.rotation.y += 0.0006;
+      }
+
+      // Dynamic Zoom-Level LOD Transition (Google Earth style)
+      if (!isTransitioning) {
+        const camDist = camera.position.length();
+        if (!isSurfaceMode && camDist < 335) {
+          triggerLODSurfaceTransition();
+        } else if (isSurfaceMode && camDist > 720) {
+          triggerLODOrbitTransition();
+        }
       }
 
       controls.update();
