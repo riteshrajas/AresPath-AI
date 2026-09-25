@@ -140,6 +140,12 @@
       <small>14°S, 285°E</small>
     </button>
 
+    <div class="panel-header" style="margin-top: 6px;">Orbit Controls</div>
+    <button class="hud-btn" id="btnRotateToggle" onclick="toggleAutoRotation()">
+      <span><i class="fa-solid fa-arrows-rotate"></i> Auto-Rotation</span>
+      <span id="rotateState" style="color: #94a3b8; font-family: monospace;">OFF</span>
+    </button>
+
     <div class="panel-header" style="margin-top: 6px;" id="surfaceHeader">Surface Shader</div>
     <button class="hud-btn" id="btnHazardToggle" onclick="toggleHazardMap()">
       <span><i class="fa-solid fa-triangle-exclamation"></i> Slope Hazard Map</span>
@@ -450,8 +456,20 @@
     let isSurfaceMode = false;
     let isHazardMapActive = false;
     let isWireframeActive = false;
+    let isAutoRotating = false;
     let pathLine = null;
     let commsLine = null;
+
+    function toggleAutoRotation() {
+      isAutoRotating = !isAutoRotating;
+      const btn = document.getElementById('btnRotateToggle');
+      const stateEl = document.getElementById('rotateState');
+      if (btn) btn.classList.toggle('active', isAutoRotating);
+      if (stateEl) {
+        stateEl.innerText = isAutoRotating ? 'ON' : 'OFF';
+        stateEl.style.color = isAutoRotating ? '#38bdf8' : '#94a3b8';
+      }
+    }
 
     function switchToOrbitView() {
       isSurfaceMode = false;
@@ -623,9 +641,9 @@
     function animate() {
       requestAnimationFrame(animate);
 
-      // Subtle planetary rotation when in orbit mode
-      if (!isSurfaceMode) {
-        marsGlobe.rotation.y += 0.0006;
+      // Subtle planetary rotation when in orbit mode (disabled by default)
+      if (!isSurfaceMode && isAutoRotating) {
+        globeGroup.rotation.y += 0.0006;
       }
 
       controls.update();
