@@ -124,27 +124,27 @@
       <span><i class="fa-solid fa-earth-americas"></i> 🪐 Global Mars Globe</span>
       <i class="fa-solid fa-check" id="checkOrbit"></i>
     </button>
-    <button class="hud-btn" id="btnSurfaceView" onclick="flyToSurfaceJezero()">
-      <span><i class="fa-solid fa-mountain"></i> 🏔️ Jezero 3D Terrain</span>
+    <button class="hud-btn" id="btnSurfaceView" onclick="flyToSector(currentSectorId || 'jezero')">
+      <span><i class="fa-solid fa-mountain"></i> 🏔️ Tactical 3D Terrain</span>
       <i class="fa-solid fa-check" id="checkSurface" style="display: none;"></i>
     </button>
 
-    <div class="panel-header" style="margin-top: 6px;">Landing Site Fly-To</div>
-    <button class="hud-btn highlight" onclick="flyToLocation(18.38, 77.58, 'Jezero Crater [Perseverance]')">
+    <div class="panel-header" style="margin-top: 6px;">Iconic Science Sites</div>
+    <button class="hud-btn highlight" onclick="flyToSector('jezero')">
       <span>🎯 Jezero Crater</span>
-      <small>18.4°N, 77.6°E</small>
+      <small>Perseverance // Delta Fan</small>
     </button>
-    <button class="hud-btn" onclick="flyToLocation(-4.58, 137.44, 'Gale Crater [Curiosity]')">
+    <button class="hud-btn" onclick="flyToSector('gale')">
       <span>🤖 Gale Crater</span>
-      <small>4.6°S, 137.4°E</small>
+      <small>Curiosity // Mount Sharp</small>
     </button>
-    <button class="hud-btn" onclick="flyToLocation(18.65, -133.8, 'Olympus Mons')">
+    <button class="hud-btn" onclick="flyToSector('olympus')">
       <span>🌋 Olympus Mons</span>
-      <small>18.7°N, 226°E</small>
+      <small>Caldera Complex // 21.9km</small>
     </button>
-    <button class="hud-btn" onclick="flyToLocation(-14.0, -75.0, 'Valles Marineris')">
+    <button class="hud-btn" onclick="flyToSector('valles')">
       <span>🏜️ Valles Marineris</span>
-      <small>14°S, 285°E</small>
+      <small>Candor Chasma // 7km Wall</small>
     </button>
 
     <div class="panel-header" style="margin-top: 6px;">Orbit Controls</div>
@@ -302,10 +302,10 @@
 
     // Add Landing Site Beacon Pins on the Globe
     const landingSites = [
-      { name: "Jezero Crater (Perseverance)", lat: 18.38, lon: 77.58, color: 0x38bdf8 },
-      { name: "Gale Crater (Curiosity)", lat: -4.58, lon: 137.44, color: 0x4ade80 },
-      { name: "Olympus Mons", lat: 18.65, lon: -133.8, color: 0xf59e0b },
-      { name: "Valles Marineris", lat: -14.0, lon: -75.0, color: 0xec4899 }
+      { id: "jezero", name: "Jezero Crater (Perseverance)", lat: 18.38, lon: 77.58, color: 0x38bdf8 },
+      { id: "gale", name: "Gale Crater (Curiosity)", lat: -4.58, lon: 137.44, color: 0x4ade80 },
+      { id: "olympus", name: "Olympus Mons (Caldera)", lat: 18.65, lon: 226.2, color: 0xf59e0b },
+      { id: "valles", name: "Valles Marineris (Candor Chasma)", lat: -14.0, lon: 285.0, color: 0xec4899 }
     ];
 
     const beaconMeshes = [];
@@ -341,69 +341,165 @@
     });
 
     // ==========================================
-    // 🏔️ 2. TACTICAL 3D TERRAIN (SURFACE SCALE)
+    // 🏔️ 2. TACTICAL 3D TERRAIN & ANNOTATIONS
     // ==========================================
     const surfaceGroup = new THREE.Group();
     surfaceGroup.visible = false;
     scene.add(surfaceGroup);
+
+    const poiGroup = new THREE.Group();
+    surfaceGroup.add(poiGroup);
+
+    const SECTORS_DATA = {
+      jezero: {
+        id: 'jezero',
+        name: 'Jezero Crater Western Fan',
+        lat: 18.38, lon: 77.58,
+        sensor: 'HiRISE DTM (0.5m/px)',
+        baseElev: -2540,
+        colorSand: new THREE.Color(0xc97a53),
+        colorOchre: new THREE.Color(0xa65233),
+        colorBasalt: new THREE.Color(0x382822),
+        elevation: (x, y) => {
+          const dist = Math.sqrt(x * x + y * y);
+          const rim = Math.pow(Math.max(0, (dist - 300) / 400), 2) * 140;
+          let delta = 0;
+          if (x < 80 && Math.abs(y) < (300 - x)) {
+            delta = 85 * Math.exp(-((x + 120) * (x + 120) + y * y) / 38000);
+          }
+          const rocks = Math.sin(x * 0.06) * Math.cos(y * 0.06) * 5 + Math.sin(x * 0.18) * Math.cos(y * 0.15) * 2;
+          return -80 + rim + delta + rocks;
+        },
+        pois: [
+          { name: "Perseverance Rover", x: -80, z: 25, color: 0x38bdf8 },
+          { name: "Kodiak Butte (Strata)", x: -180, z: 110, color: 0xfbbf24 },
+          { name: "Belva Impact Crater", x: 140, z: -120, color: 0xef4444 },
+          { name: "Neretva River Inlet", x: -240, z: -40, color: 0x4ade80 }
+        ]
+      },
+      gale: {
+        id: 'gale',
+        name: 'Gale Crater & Mount Sharp',
+        lat: -4.58, lon: 137.44,
+        sensor: 'HiRISE/CTX DTM (1.0m/px)',
+        baseElev: -4500,
+        colorSand: new THREE.Color(0xb08060),
+        colorOchre: new THREE.Color(0x8c5035),
+        colorBasalt: new THREE.Color(0x28201c),
+        elevation: (x, y) => {
+          const dist = Math.sqrt(x * x + y * y);
+          const peak = 220 * Math.exp(-(dist * dist) / 55000);
+          const terraces = 12 * Math.sin(dist * 0.05);
+          let gully = 0;
+          if (x > 30 && Math.abs(y - 1.2 * x) < 40) gully = -35;
+          const rocks = Math.sin(x * 0.07) * Math.cos(y * 0.05) * 4;
+          return -100 + peak + terraces + gully + rocks;
+        },
+        pois: [
+          { name: "Bradbury Landing (MSL)", x: -140, z: -90, color: 0x38bdf8 },
+          { name: "Mount Sharp (5.5km Peak)", x: 0, z: 0, color: 0xf59e0b },
+          { name: "Vera Rubin Hematite Ridge", x: -70, z: 60, color: 0xec4899 },
+          { name: "Gediz Vallis Debris Flow", x: 50, z: 130, color: 0xef4444 }
+        ]
+      },
+      olympus: {
+        id: 'olympus',
+        name: 'Olympus Mons Summit Caldera',
+        lat: 18.65, lon: 226.2,
+        sensor: 'HRSC / MOLA DTM (12.5m/px)',
+        baseElev: 18000,
+        colorSand: new THREE.Color(0xcc6644),
+        colorOchre: new THREE.Color(0x994422),
+        colorBasalt: new THREE.Color(0x201515),
+        elevation: (x, y) => {
+          const dist = Math.sqrt(x * x + y * y);
+          const flank = 90 * (1 - Math.min(1, dist / 600));
+          let caldera = 0;
+          if (dist < 280) caldera = -110 * (1 - Math.pow(dist / 280, 4));
+          const lavaFlow = 15 * Math.cos(x * 0.03 + y * 0.02) * Math.sin(y * 0.02);
+          return 20 + flank + caldera + lavaFlow;
+        },
+        pois: [
+          { name: "Caldera Central Floor", x: 0, z: 0, color: 0xfbbf24 },
+          { name: "South Rim Wall (3.2km)", x: 0, z: -180, color: 0xef4444 },
+          { name: "Lava Tube Skylight Shelter", x: -130, z: 80, color: 0x38bdf8 },
+          { name: "Northwest Lava Fall", x: 120, z: 140, color: 0x4ade80 }
+        ]
+      },
+      valles: {
+        id: 'valles',
+        name: 'Valles Marineris (Candor Chasma)',
+        lat: -14.0, lon: 285.0,
+        sensor: 'HRSC / CTX Stereo DTM (12.5m/px)',
+        baseElev: -4200,
+        colorSand: new THREE.Color(0xd98855),
+        colorOchre: new THREE.Color(0x8a3a22),
+        colorBasalt: new THREE.Color(0x1a1210),
+        elevation: (x, y) => {
+          const wallNorth = 220 * Math.pow(Math.max(0, (-y - 120) / 220), 2);
+          const wallSouth = 200 * Math.pow(Math.max(0, (y - 120) / 220), 2);
+          let talus = 0;
+          if (x > 30 && y < 0) talus = 65 * Math.exp(-((x - 140) * (x - 140) + y * y) / 12000);
+          const strata = 6 * Math.sin(x * 0.05);
+          return -90 + wallNorth + wallSouth + talus + strata;
+        },
+        pois: [
+          { name: "Chasma Basin Floor (-4.2km)", x: 0, z: 0, color: 0x4ade80 },
+          { name: "North Wall (7km Vertical)", x: 0, z: -220, color: 0xef4444 },
+          { name: "South Canyon Rim Wall", x: 0, z: 220, color: 0xef4444 },
+          { name: "Candor Chaos Landslide", x: 110, z: -50, color: 0xfbbf24 }
+        ]
+      }
+    };
+
+    let currentSectorId = 'jezero';
+
+    function getMarsElevation(x, y) {
+      const sec = SECTORS_DATA[currentSectorId] || SECTORS_DATA.jezero;
+      return sec.elevation(x, y);
+    }
+
+    function createTextSprite(text, colorStr = '#38bdf8') {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 128;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(10, 15, 30, 0.88)';
+      ctx.strokeStyle = colorStr;
+      ctx.lineWidth = 4;
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(8, 8, 496, 112, 18);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        ctx.fillRect(8, 8, 496, 112);
+        ctx.strokeRect(8, 8, 496, 112);
+      }
+      ctx.font = 'bold 36px "Segoe UI", Arial, sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 256, 64);
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.minFilter = THREE.LinearFilter;
+      const mat = new THREE.SpriteMaterial({ map: texture, transparent: true, depthTest: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.scale.set(60, 15, 1);
+      return sprite;
+    }
 
     const TERRAIN_SIZE = 1400;
     const gridRes = 128;
     const terrainGeo = new THREE.PlaneGeometry(TERRAIN_SIZE, TERRAIN_SIZE, gridRes, gridRes);
     terrainGeo.rotateX(-Math.PI / 2);
 
-    function getMarsElevation(x, y) {
-      const dist = Math.sqrt(x * x + y * y);
-      const craterWall = Math.pow(Math.max(0, (dist - 300) / 400), 2) * 140;
-      let delta = 0;
-      if (x < 80 && Math.abs(y) < (300 - x)) {
-        delta = 85 * Math.exp(-((x + 120) * (x + 120) + y * y) / 38000);
-      }
-      const rocks = Math.sin(x * 0.06) * Math.cos(y * 0.06) * 5 + Math.sin(x * 0.18) * Math.cos(y * 0.15) * 2;
-      return -80 + craterWall + delta + rocks;
-    }
-
-    const posAttr = terrainGeo.attributes.position;
-    const vertexColors = [];
-    const hazardColors = [];
+    let vertexColors = [];
+    let hazardColors = [];
     const colorSafe = new THREE.Color(0x22c55e);
     const colorCaution = new THREE.Color(0xeab308);
     const colorHazard = new THREE.Color(0xef4444);
-    const colorBasalt = new THREE.Color(0x382822);
-    const colorOchre = new THREE.Color(0xa65233);
-    const colorSand = new THREE.Color(0xc97a53);
 
-    for (let i = 0; i < posAttr.count; i++) {
-      const vx = posAttr.getX(i);
-      const vz = posAttr.getZ(i);
-      const vy = getMarsElevation(vx, vz);
-      posAttr.setY(i, vy);
-    }
-    terrainGeo.computeVertexNormals();
-
-    const normals = terrainGeo.attributes.normal;
-    for (let i = 0; i < posAttr.count; i++) {
-      const ny = normals.getY(i);
-      const slopeDeg = Math.acos(Math.min(1.0, Math.max(0.0, ny))) * (180 / Math.PI);
-      const vy = posAttr.getY(i);
-
-      // Realistic Color Blend
-      const blend = (vy + 80) / 140;
-      const cReal = colorOchre.clone().lerp(colorSand, Math.min(1, Math.max(0, blend)));
-      if (slopeDeg > 18) cReal.lerp(colorBasalt, 0.6);
-      vertexColors.push(cReal.r, cReal.g, cReal.b);
-
-      // Hazard Color
-      if (slopeDeg < 10) {
-        hazardColors.push(colorSafe.r, colorSafe.g, colorSafe.b);
-      } else if (slopeDeg < 20) {
-        hazardColors.push(colorCaution.r, colorCaution.g, colorCaution.b);
-      } else {
-        hazardColors.push(colorHazard.r, colorHazard.g, colorHazard.b);
-      }
-    }
-
-    terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(vertexColors, 3));
     const terrainMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.85,
@@ -419,18 +515,95 @@
     const habGeo = new THREE.CylinderGeometry(18, 22, 10, 16);
     const habMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3, metalness: 0.8 });
     const hab = new THREE.Mesh(habGeo, habMat);
-    hab.position.set(-100, getMarsElevation(-100, 0) + 5, 0);
     surfaceGroup.add(hab);
 
     const mastGeo = new THREE.CylinderGeometry(1, 1, 35, 8);
     const mastMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8 });
     const mast = new THREE.Mesh(mastGeo, mastMat);
-    mast.position.set(-100, getMarsElevation(-100, 0) + 22, 0);
     surfaceGroup.add(mast);
 
     const beaconLight = new THREE.PointLight(0x38bdf8, 2, 140);
-    beaconLight.position.set(-100, getMarsElevation(-100, 0) + 40, 0);
     surfaceGroup.add(beaconLight);
+
+    function rebuildSurfaceForSector(sectorId) {
+      currentSectorId = sectorId;
+      const sector = SECTORS_DATA[sectorId] || SECTORS_DATA.jezero;
+
+      const pos = terrainGeo.attributes.position;
+      const vColors = [];
+      const hColors = [];
+
+      for (let i = 0; i < pos.count; i++) {
+        const vx = pos.getX(i);
+        const vz = pos.getZ(i);
+        const vy = sector.elevation(vx, vz);
+        pos.setY(i, vy);
+      }
+      pos.needsUpdate = true;
+      terrainGeo.computeVertexNormals();
+
+      const normals = terrainGeo.attributes.normal;
+      for (let i = 0; i < pos.count; i++) {
+        const ny = normals.getY(i);
+        const slopeDeg = Math.acos(Math.min(1.0, Math.max(0.0, ny))) * (180 / Math.PI);
+        const vy = pos.getY(i);
+
+        const blend = (vy + 80) / 160;
+        const cReal = sector.colorOchre.clone().lerp(sector.colorSand, Math.min(1, Math.max(0, blend)));
+        if (slopeDeg > 18) cReal.lerp(sector.colorBasalt, 0.6);
+        vColors.push(cReal.r, cReal.g, cReal.b);
+
+        if (slopeDeg < 10) {
+          hColors.push(colorSafe.r, colorSafe.g, colorSafe.b);
+        } else if (slopeDeg < 20) {
+          hColors.push(colorCaution.r, colorCaution.g, colorCaution.b);
+        } else {
+          hColors.push(colorHazard.r, colorHazard.g, colorHazard.b);
+        }
+      }
+
+      vertexColors = vColors;
+      hazardColors = hColors;
+      const activeColors = isHazardMapActive ? hazardColors : vertexColors;
+      terrainGeo.setAttribute('color', new THREE.Float32BufferAttribute(activeColors, 3));
+      terrainGeo.attributes.color.needsUpdate = true;
+      terrainMat.needsUpdate = true;
+
+      // Re-anchor Hab & Antenna
+      hab.position.set(-100, getMarsElevation(-100, 0) + 5, 0);
+      mast.position.set(-100, getMarsElevation(-100, 0) + 22, 0);
+      beaconLight.position.set(-100, getMarsElevation(-100, 0) + 40, 0);
+      if (typeof astronaut !== 'undefined') {
+        astronaut.position.set(-80, getMarsElevation(-80, 25) + 5, 25);
+      }
+
+      // Rebuild 3D Science POIs
+      while (poiGroup.children.length > 0) {
+        poiGroup.remove(poiGroup.children[0]);
+      }
+
+      sector.pois.forEach(poi => {
+        const py = getMarsElevation(poi.x, poi.z);
+        const poleGeo = new THREE.CylinderGeometry(0.7, 0.7, 24, 8);
+        const poleMat = new THREE.MeshBasicMaterial({ color: poi.color });
+        const pole = new THREE.Mesh(poleGeo, poleMat);
+        pole.position.set(poi.x, py + 12, poi.z);
+        poiGroup.add(pole);
+
+        const orbGeo = new THREE.SphereGeometry(3.0, 12, 12);
+        const orbMat = new THREE.MeshBasicMaterial({ color: poi.color });
+        const orb = new THREE.Mesh(orbGeo, orbMat);
+        orb.position.set(poi.x, py + 24, poi.z);
+        poiGroup.add(orb);
+
+        const hexStr = '#' + new THREE.Color(poi.color).getHexString();
+        const sprite = createTextSprite(poi.name, hexStr);
+        sprite.position.set(poi.x, py + 34, poi.z);
+        poiGroup.add(sprite);
+      });
+    }
+
+    rebuildSurfaceForSector('jezero');
 
     // Astronaut Marker
     function createAstronaut() {
@@ -483,23 +656,26 @@
 
     let isTransitioning = false;
 
-    function triggerLODSurfaceTransition() {
-      if (isTransitioning || isSurfaceMode) return;
+    function triggerLODSurfaceTransition(onDone = null) {
+      if (isTransitioning) return;
       isTransitioning = true;
       const banner = document.getElementById('lodBanner');
       const text = document.getElementById('lodText');
+      const sector = SECTORS_DATA[currentSectorId] || SECTORS_DATA.jezero;
+
       if (banner && text) {
         banner.style.display = 'flex';
-        text.innerHTML = '<i class="fa-solid fa-satellite-dish fa-fade"></i> STREAMING HiRISE STEREO PHOTOGRAMMETRY (0.5m/px)...';
+        text.innerHTML = `<i class="fa-solid fa-satellite-dish fa-fade"></i> STREAMING ${sector.sensor} // RECONSTRUCTING 3D MESH...`;
       }
 
-      flyToSurfaceJezero(() => {
+      flyToSurfaceMode(() => {
         if (text) {
-          text.innerHTML = '<i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> HiRISE 3D RECONSTRUCTION COMPLETE (0.5m/px)';
+          text.innerHTML = `<i class="fa-solid fa-circle-check" style="color: #4ade80;"></i> ${sector.name.toUpperCase()} 3D RECONSTRUCTION COMPLETE`;
         }
         setTimeout(() => {
           if (banner) banner.style.display = 'none';
           isTransitioning = false;
+          if (onDone) onDone();
         }, 1500);
       });
     }
@@ -546,7 +722,7 @@
       animateCameraFlight(new THREE.Vector3(0, 350, 950), new THREE.Vector3(0, 0, 0), 1600, onComplete);
     }
 
-    function flyToSurfaceJezero(onComplete = null) {
+    function flyToSurfaceMode(onComplete = null) {
       isSurfaceMode = true;
       globeGroup.visible = false;
       surfaceGroup.visible = true;
@@ -554,31 +730,51 @@
       controls.minDistance = 15;
       controls.maxDistance = 1000;
 
+      const sector = SECTORS_DATA[currentSectorId] || SECTORS_DATA.jezero;
+
       document.getElementById('btnSurfaceView').classList.add('active');
       document.getElementById('btnOrbitView').classList.remove('active');
       document.getElementById('checkSurface').style.display = 'inline';
       document.getElementById('checkOrbit').style.display = 'none';
 
-      document.getElementById('viewModeText').innerText = '🏔️ TACTICAL SURFACE // JEZERO CRATER';
-      document.getElementById('statTarget').innerText = 'JEZERO WESTERN FAN';
-      document.getElementById('statCoords').innerText = '18.38°N, 77.58°E';
-      document.getElementById('statSensor').innerText = 'HiRISE DTM (0.5m/px)';
+      document.getElementById('viewModeText').innerText = `🏔️ TACTICAL SURFACE // ${sector.name.toUpperCase()}`;
+      document.getElementById('statTarget').innerText = sector.name.toUpperCase();
+      document.getElementById('statCoords').innerText = `${sector.lat}°N, ${sector.lon}°E`;
+      document.getElementById('statSensor').innerText = sector.sensor;
       document.getElementById('statEta').innerText = 'READY (CLICK SURFACE)';
 
       animateCameraFlight(new THREE.Vector3(0, 320, 480), new THREE.Vector3(0, 0, 0), 1800, onComplete);
     }
 
-    function flyToLocation(lat, lon, label) {
-      document.getElementById('statTarget').innerText = label.toUpperCase();
-      document.getElementById('statCoords').innerText = `${lat}°N, ${lon}°E`;
+    function flyToSector(sectorId) {
+      const sector = SECTORS_DATA[sectorId] || SECTORS_DATA.jezero;
+      currentSectorId = sector.id;
 
-      if (label.includes('Jezero')) {
-        triggerLODSurfaceTransition();
+      document.getElementById('statTarget').innerText = sector.name.toUpperCase();
+      document.getElementById('statCoords').innerText = `${sector.lat}°N, ${sector.lon}°E`;
+      document.getElementById('statSensor').innerText = sector.sensor;
+
+      rebuildSurfaceForSector(sector.id);
+
+      if (!isSurfaceMode) {
+        const targetPos = latLonToVector3(sector.lat, sector.lon, MARS_RADIUS * 1.8);
+        animateCameraFlight(targetPos, new THREE.Vector3(0, 0, 0), 1100, () => {
+          triggerLODSurfaceTransition();
+        });
       } else {
-        // Rotate and zoom globe towards the selected coordinates
-        const targetPos = latLonToVector3(lat, lon, MARS_RADIUS * 2.8);
-        animateCameraFlight(targetPos, new THREE.Vector3(0, 0, 0), 1500);
+        animateCameraFlight(new THREE.Vector3(0, 320, 480), new THREE.Vector3(0, 0, 0), 1200);
       }
+    }
+
+    function flyToLocation(lat, lon, label) {
+      for (const [sId, sCfg] of Object.entries(SECTORS_DATA)) {
+        if (label.toLowerCase().includes(sId) || label.toLowerCase().includes(sCfg.name.toLowerCase().split(' ')[0])) {
+          flyToSector(sId);
+          return;
+        }
+      }
+      const targetPos = latLonToVector3(lat, lon, MARS_RADIUS * 2.8);
+      animateCameraFlight(targetPos, new THREE.Vector3(0, 0, 0), 1500);
     }
 
     function animateCameraFlight(targetCamPos, targetControlsTarget, duration = 1500, onComplete = null) {
@@ -643,7 +839,7 @@
         const beaconHits = raycaster.intersectObjects(beaconMeshes);
         if (beaconHits.length > 0) {
           const site = beaconHits[0].object.userData;
-          flyToLocation(site.lat, site.lon, site.name);
+          flyToSector(site.id || 'jezero');
           return;
         }
       } else {
