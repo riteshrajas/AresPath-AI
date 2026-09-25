@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AresPath AI — 3D Tactical Mars Explorer</title>
+  <link rel="stylesheet" href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; }
+    body, html { width: 100%; height: 100%; overflow: hidden; background: #050508; color: #fff; }
+    #cesiumContainer { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+
+    /* Tactical HUD Overlay */
+    .hud-header {
+      position: absolute; top: 20px; left: 24px; z-index: 100;
+      background: rgba(10, 14, 22, 0.85); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 90, 60, 0.35); border-radius: 10px;
+      padding: 16px 22px; pointer-events: auto;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    }
+    .hud-title { font-size: 1.25rem; font-weight: 700; letter-spacing: 1.5px; color: #ff6b4a; display: flex; align-items: center; gap: 8px; }
+    .hud-subtitle { font-size: 0.78rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-top: 4px; }
+
+    .hud-controls {
+      position: absolute; top: 20px; right: 24px; z-index: 100;
+      background: rgba(10, 14, 22, 0.85); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 10px;
+      padding: 14px 18px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .hud-btn {
+      background: rgba(255, 90, 60, 0.15); border: 1px solid rgba(255, 90, 60, 0.4);
+      color: #ff8c73; padding: 8px 14px; border-radius: 6px; font-size: 0.82rem;
+      font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+    }
+    .hud-btn:hover { background: rgba(255, 90, 60, 0.35); color: #fff; }
+
+    .telemetry-bar {
+      position: absolute; bottom: 20px; left: 24px; right: 24px; z-index: 100;
+      background: rgba(10, 14, 22, 0.85); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px;
+      padding: 12px 24px; display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.82rem; color: #cbd5e1;
+    }
+    .tele-stat { display: flex; flex-direction: column; gap: 2px; }
+    .tele-stat span:first-child { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+    .tele-stat span:last-child { font-weight: 600; color: #38bdf8; font-family: monospace; }
+  </style>
+</head>
+<body>
+  <div class="hud-header">
+    <div class="hud-title"><span>🔴</span> ARESPATH AI // HUD</div>
+    <div class="hud-subtitle">3D Martian Tactical Surface Reconnaissance</div>
+  </div>
+
+  <div class="hud-controls">
+    <button class="hud-btn" onclick="flyToJezero()">🎯 Fly to Jezero Crater</button>
+    <button class="hud-btn" onclick="flyToOlympus()">🌋 Fly to Olympus Mons</button>
+    <button class="hud-btn" onclick="flyToValles()">🏜️ Fly to Valles Marineris</button>
+    <button class="hud-btn" onclick="resetGlobalView()">🪐 Global Orbit View</button>
+  </div>
+
+  <div class="telemetry-bar">
+    <div class="tele-stat"><span>Target Sector</span><span>JEZERO CRATER [PERSEVERANCE SITE]</span></div>
+    <div class="tele-stat"><span>Coordinates</span><span>18.38° N, 77.58° E</span></div>
+    <div class="tele-stat"><span>Elevation Datum</span><span>-2,540 m (MOLA Areoid)</span></div>
+    <div class="tele-stat"><span>Comms Line-of-Sight</span><span style="color: #4ade80;">OPTIMAL (DIRECT TO HAB)</span></div>
+    <div class="tele-stat"><span>Surface Temp</span><span>-48.2°C (MEDA Sol 920)</span></div>
+  </div>
+
+  <div id="cesiumContainer"></div>
+
+  <script>
+    // Initialize Cesium with Mars Ellipsoid (Radius = 3396190m)
+    const marsEllipsoid = new Cesium.Ellipsoid(3396190.0, 3396190.0, 3376200.0);
+    Cesium.Ellipsoid.WGS84 = marsEllipsoid;
+
+    const viewer = new Cesium.Viewer('cesiumContainer', {
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      infoBox: false,
+      sceneModePicker: false,
+      selectionIndicator: false,
+      timeline: false,
+      navigationHelpButton: false,
+      animation: false,
+      globe: new Cesium.Globe(marsEllipsoid)
+    });
+
+    // Load NASA Mars Trek Global Viking True-Color Layer
+    const marsLayer = new Cesium.UrlTemplateImageryProvider({
+      url: 'https://trek.nasa.gov/tiles/Mars/EQ/Mars_Viking_MDIM21_ClrMosaic_global_231m/1.0.0/default/default028mm/{z}/{y}/{x}.jpg',
+      ellipsoid: marsEllipsoid,
+      maximumLevel: 7
+    });
+    viewer.imageryLayers.addImageryProvider(marsLayer);
+
+    // Initial View
+    viewer.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(77.58, 18.38, 5000000.0, marsEllipsoid),
+      duration: 2.0
+    });
+
+    function flyToJezero() {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(77.58, 18.38, 150000.0, marsEllipsoid),
+        duration: 2.5
+      });
+    }
+
+    function flyToOlympus() {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(-133.8, 18.65, 300000.0, marsEllipsoid),
+        duration: 2.5
+      });
+    }
+
+    function flyToValles() {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(-75.0, -14.0, 800000.0, marsEllipsoid),
+        duration: 2.5
+      });
+    }
+
+    function resetGlobalView() {
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(0.0, 0.0, 10000000.0, marsEllipsoid),
+        duration: 2.0
+      });
+    }
+  </script>
+</body>
+</html>
