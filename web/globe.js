@@ -239,4 +239,3 @@ initialize().catch(error => {
   status.textContent = 'Terrain loading failed';
   console.error(error);
 });
-
