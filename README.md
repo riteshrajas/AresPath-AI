@@ -17,12 +17,14 @@ Vite/Three.js app; [`backend/`](backend/) is the FastAPI terrain service. Start
 with the [run instructions and API contract](docs/FRAMEWORK.md). Both the globe
 and arbitrary-coordinate tile explorer use the backend. Global coverage uses
 coarse MOLA; detailed prepared data is limited to Jezero and Gale. Automatic
-camera-driven global tile streaming remains unfinished. The broader mission
+zoom-driven terrain windows now load directly on the globe after selecting a
+location by double-click, coordinates or a site button. This uses a bounded local
+tile window, not a full planetary quadtree. The broader mission
 capabilities described below are aspirations, not verified implemented features.
 
-**Expanded Gale map:** The active globe includes the [10-km-radius Gale mosaic](docs/GALE_10KM.md). Valid source coverage is complete within the requested radius: about 29.5% HiRISE and 70.5% CTX, displayed on a 40-m mesh. The sources have measured vertical offsets and may show seams; the original small terrain files remain available.
+**Expanded Gale dataset:** The globe can sample the [10-km-radius Gale mosaic](docs/GALE_10KM.md). Valid source coverage is complete within the requested radius: about 29.5% HiRISE and 70.5% CTX, prepared at 20 m with a separate 40 m export mesh; the new globe selects its display grid by zoom. The sources have measured vertical offsets and may show seams; the original small terrain files remain available.
 
-**Current globe UI:** `web/index.html` renders coarse measured MOLA planetary radii and places the verified Jezero and Gale HiRISE patches at their source coordinates. Three small navigation buttons move between the globe and the patches in one scene; procedural site models, hazard controls and simulated telemetry remain removed. See [globe stitching details and reproduction](docs/GLOBE_STITCHING.md). The separate terrain viewer and scientific output files remain available.
+**Legacy static globe UI:** `web/index.html` renders coarse measured MOLA planetary radii and places the verified Jezero and Gale HiRISE patches at their source coordinates. Three small navigation buttons move between the globe and the patches in one scene; procedural site models, hazard controls and simulated telemetry remain removed. See [globe stitching details and reproduction](docs/GLOBE_STITCHING.md). The separate terrain viewer and scientific output files remain available.
 
 **Verified terrain deliverable (October 21, 2026):** Small Jezero and Gale patches are generated from published HiRISE DTMs using [`pipeline/verified_terrain.py`](pipeline/verified_terrain.py). See the [reproducible handoff, measured results, and limitations](docs/TERRAIN_HANDOFF.md). The viewer is `web/verified-terrain.html`. This processes existing stereo-derived elevations; it does not perform new raw-image reconstruction. Other terrain generators and the placeholder DepthPro server include procedural/brightness-derived prototypes and must not be presented as verified terrain or measured GPU inference.
 

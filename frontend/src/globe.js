@@ -1,251 +1,194 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { SCALE, sampleMola, planetPoint, terrainIndices } from './globe-math.js';
+import { SCALE, sampleMola, planetPoint } from './globe-math.js';
+import { TerrainClient } from './terrain-client.js';
+import { planTerrainWindow, fetchTerrainWindow } from './terrain-window.js';
+import { createTerrainSurface } from './terrain-surface.js';
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x020306);
-const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.000001, 30000);
+const api = new TerrainClient(import.meta.env.VITE_API_BASE_URL || '');
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
 camera.position.set(0, 180, 1020);
-// Log depth retains terrain depth precision when navigating from orbit to meters.
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
-renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
 document.querySelector('#canvas-container').appendChild(renderer.domElement);
-let controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.enablePan = false;
-controls.minDistance = 300;
-controls.maxDistance = 6000;
-scene.add(new THREE.AmbientLight(0xffeedd, 0.8));
-const sun = new THREE.DirectionalLight(0xffd5b8, 3);
-sun.position.set(1200, 800, 1000);
-scene.add(sun);
-const fill = new THREE.DirectionalLight(0x223344, 0.8);
-fill.position.set(-1000, -400, -800);
-scene.add(fill);
-// This soft camera light keeps either selected patch inspectable regardless of
-// the fixed illustrative sun direction. This is not a solar illumination model.
-const inspectionLight = new THREE.PointLight(0xffeed8, 0, 0, 0);
-scene.add(inspectionLight);
-const starPositions = new Float32Array(3500 * 3);
-for (let i = 0; i < starPositions.length; i++) starPositions[i] = (Math.random() - 0.5) * 15000;
-const stars = new THREE.BufferGeometry();
-stars.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-scene.add(new THREE.Points(stars, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, transparent: true, opacity: 0.85 })));
-
-const status = document.querySelector('#status');
+scene.add(new THREE.AmbientLight(0xffeee1, .85));
+const sun = new THREE.DirectionalLight(0xffe0c6, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
+const inspection = new THREE.DirectionalLight(0xfff1df, 0); scene.add(inspection); scene.add(inspection.target);
+const status = document.querySelector('#status'), detail = document.querySelector('#detail');
+const errorText = document.querySelector('#error'), sourceLink = document.querySelector('#source');
 const buttons = [...document.querySelectorAll('nav button')];
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
-const root = API_BASE + '/api/v1/globe/';
-const patches = new Map();
-let flight = null, activeSite = 'mars';
-const vector = coordinates => new THREE.Vector3(...coordinates);
-async function get(url, binary = false) {
-  const response = await fetch(url);
-  if (!response.ok) throw Error(`Unable to load ${url}: HTTP ${response.status}`);
-  return binary ? response.arrayBuffer() : response.json();
+const vector = xyz => new THREE.Vector3(...xyz);
+let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain;
+let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
+const mask = new THREE.Vector4(0, 0, 0, 0);
+function makeControls(target = new THREE.Vector3()) {
+  controls?.dispose(); controls = new OrbitControls(camera, renderer.domElement);
+  controls.target.copy(target); controls.enableDamping = true; controls.enablePan = false;
+  controls.minDistance = local ? 100 * SCALE : 290;
+  controls.maxDistance = 6000; controls.minPolarAngle = .03;
+  controls.maxPolarAngle = local ? Math.PI / 2 - .12 : Math.PI - .03; controls.update();
 }
+makeControls();
 function fly(position, target, up) {
-  flight = { started: performance.now(), position: camera.position.clone(), target: controls.target.clone(),
-    up: camera.up.clone(), endPosition: position, endTarget: target, endUp: up };
-  controls.enabled = false;
+  flight = { start: performance.now(), from: camera.position.clone(), target: controls.target.clone(), up: camera.up.clone(),
+    to: position, endTarget: target, endUp: up }; controls.enabled = false;
 }
-function focus(site) {
-  activeSite = site;
-  for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.site === site));
-  if (site === 'mars') {
-    controls.minDistance = 300;
-    inspectionLight.intensity = 0;
-    status.textContent = 'Global MOLA terrain · Jezero and Gale HiRISE patches';
-    document.querySelector('#source').hidden = true;
-    fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
-    return;
-  }
-  const patch = patches.get(site), [lon, lat] = patch.metadata.center;
-  const normal = patch.center.clone().normalize();
-  const north = new THREE.Vector3(-Math.sin(lat * Math.PI / 180) * Math.cos(lon * Math.PI / 180),
-    Math.cos(lat * Math.PI / 180), Math.sin(lat * Math.PI / 180) * Math.sin(lon * Math.PI / 180));
-  const distance = Math.max(2600, Math.max(...patch.metadata.display_span_m) * 1.6) * SCALE;
-  controls.minDistance = 200 * SCALE;
-  inspectionLight.intensity = 1.5;
-  status.textContent = `${site === 'jezero' ? 'Jezero' : 'Gale'} · ${Math.abs(lat).toFixed(4)}°${lat < 0 ? 'S' : 'N'}, ${lon.toFixed(4)}°E · ${patch.metadata.coverage_label || 'HiRISE relief at 1× scale'}`;
-  const source = document.querySelector('#source');
-  source.hidden = false;
-  source.href = patch.metadata.source_page.startsWith('/') ? API_BASE + patch.metadata.source_page : patch.metadata.source_page;
-  source.textContent = patch.metadata.source_label || 'HiRISE source · elevation colors';
-  fly(patch.center.clone().addScaledVector(normal, distance).addScaledVector(north, -distance * 0.6), patch.center, normal);
+function setActive(site) { buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.site === site))); }
+function clearTerrain() {
+  if (terrain) { scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); terrain.mesh.material.dispose(); terrain = null; }
+  mask.set(0, 0, 0, 0); loadedKey = '';
 }
-
-function createPatch(metadata, grid, mola, radiusGrid, areoidGrid, baseRadiusAt) {
-  const [lon, lat] = metadata.center;
-  const sample = (array, x, y) => sampleMola(array, mola.width, mola.height, x, y, mola.offset_m);
-  let min = Infinity, max = -Infinity, sum = 0, count = 0;
-  for (const z of grid.elevations_m) if (z !== null) {
-    min = Math.min(min, z); max = Math.max(max, z); sum += z; count++;
-  }
-  if (!count) throw Error('Terrain contains no valid elevations');
-  const meanElevation = sum / count;
-  const center = vector(planetPoint(lon, lat, sample(areoidGrid, lon, lat) + meanElevation));
-  const positions = [], colors = [];
-  for (let y = 0; y < grid.rows; y++) for (let x = 0; x < grid.cols; x++) {
-    const height = grid.elevations_m[y * grid.cols + x];
-    const longitude = metadata.longitudes[x], latitude = metadata.latitudes[y];
-    const position = vector(planetPoint(longitude, latitude, sample(areoidGrid, longitude, latitude) + (height ?? meanElevation))).sub(center);
-    positions.push(...position.toArray());
-    const t = height === null ? 0 : (height - min) / Math.max(max - min, 1);
-    colors.push(0.30 + t * 0.30, 0.13 + t * 0.25, 0.075 + t * 0.18);
-  }
-  const indices = terrainIndices(grid.elevations_m, grid.rows, grid.cols);
-  const surfaceTriangles = indices.length / 3;
-  // A narrow render-only collar joins the different resolutions. Its
-  // interpolated vertices are not source elevations or scientific outputs.
-  const border = [];
-  for (let x = 0; x < grid.cols; x++) border.push(x);
-  for (let y = 1; y < grid.rows; y++) border.push(y * grid.cols + grid.cols - 1);
-  for (let x = grid.cols - 2; x >= 0; x--) border.push((grid.rows - 1) * grid.cols + x);
-  for (let y = grid.rows - 2; y > 0; y--) border.push(y * grid.cols);
-  let previousRing = border;
-  const [spanX, spanY] = metadata.display_span_m;
-  // Fixed 750 m visual join, rather than doubling a large regional map.
-  const padX = 1500 / spanX, padY = 1500 / spanY;
-  for (let ring = 1; ring <= 5; ring++) {
-    const t = Math.min(ring / 4, 1), currentRing = [];
-    for (let i = 0; i < border.length; i++) {
-      const index = border[i], y = Math.floor(index / grid.cols), x = index % grid.cols;
-      const tileLon = metadata.longitudes[x], tileLat = metadata.latitudes[y];
-      const longitude = lon + (tileLon - lon) * (1 + t * padX);
-      const latitude = lat + (tileLat - lat) * (1 + t * padY);
-      const innerRadius = sample(areoidGrid, tileLon, tileLat) + (grid.elevations_m[index] ?? meanElevation);
-      // Join the actual coarse triangle, not its higher-resolution input grid:
-      // interpolation/chord differences otherwise leave a visible crack.
-      const outerRadius = baseRadiusAt(longitude, latitude) + 1;
-      const radial = (1 - t) * innerRadius + t * outerRadius - (ring === 5 ? 2000 : 0);
-      const vertex = vector(planetPoint(longitude, latitude, radial)).sub(center);
-      currentRing.push(positions.length / 3);
-      positions.push(...vertex.toArray());
-      colors.push(...colors.slice(index * 3, index * 3 + 3));
+function reset() {
+  selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain();
+  inspection.intensity = 0; setActive('mars'); sourceLink.hidden = true; errorText.textContent = '';
+  status.textContent = 'Mars · global MOLA relief';
+  detail.textContent = 'Double-click the surface to explore · detailed elevations available at Jezero and Gale';
+  fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
+}
+async function explore(longitude, latitude, label = 'Selected location', range = 30000, site = '') {
+  const token = ++selection; pending?.abort(); requestedKey = ''; retryAt = 0;
+  status.textContent = `Locating ${label}…`; errorText.textContent = '';
+  try {
+    const coverage = await api.coverage(longitude, latitude);
+    if (selection !== token) return;
+    const center = vector(planetPoint(longitude, latitude, coverage.planetary_radius_m));
+    const normal = center.clone().normalize(), lon = longitude * Math.PI / 180, lat = latitude * Math.PI / 180;
+    const north = new THREE.Vector3(-Math.sin(lat) * Math.cos(lon), Math.cos(lat), Math.sin(lat) * Math.sin(lon));
+    local = { longitude, latitude, label, coverage }; loadedKey = ''; setActive(site);
+    document.querySelector('#longitude').value = longitude.toFixed(5); document.querySelector('#latitude').value = latitude.toFixed(5);
+    status.textContent = `${label} · ${Math.abs(latitude).toFixed(3)}°${latitude < 0 ? 'S' : 'N'}, ${Math.abs(longitude).toFixed(3)}°${longitude < 0 ? 'W' : 'E'}`;
+    detail.textContent = 'Loading terrain for this view…'; sourceLink.hidden = false;
+    sourceLink.href = `${api.base}/api/v1/coverage?longitude=${longitude}&latitude=${latitude}`;
+    const source = coverage.selected_source;
+    sourceLink.textContent = `Point source: ${source.kind} · ${source.prepared_resolution_m >= 1000 ? (source.prepared_resolution_m / 1000).toFixed(1) + ' km' : source.prepared_resolution_m + ' m'} native/prepared samples`;
+    inspection.intensity = 1;
+    const distance = range * SCALE;
+    fly(center.clone().addScaledVector(normal, distance).addScaledVector(north, -distance * .45), center, normal);
+  } catch (error) { if (selection === token) errorText.textContent = `Location unavailable: ${error.message}`; }
+}
+async function updateTerrain(now) {
+  if (!local || flight || now < scheduledAt || now < retryAt) return;
+  scheduledAt = now + 250;
+  const range = camera.position.distanceTo(controls.target) / SCALE;
+  const plan = planTerrainWindow(local.longitude, local.latitude, range, camera.aspect, camera.fov);
+  if (plan.key === loadedKey || plan.key === requestedKey) return;
+  pending?.abort(); const controller = new AbortController(); pending = controller; requestedKey = plan.key;
+  detail.textContent = 'Loading terrain for this zoom…';
+  try {
+    const data = await fetchTerrainWindow(api, plan, controller.signal);
+    if (controller.signal.aborted || !local) return;
+    const next = createTerrainSurface(data, texture, baseRadiusAt); clearTerrain();
+    // Leave the coarse globe beneath the visual collar. Masking through its
+    // outside edge exposes tiny cracks where curved edges cross coarse faces.
+    terrain = next; scene.add(next.mesh); loadedKey = plan.key; mask.set(...data.bounds);
+    const source = local.coverage.selected_source;
+    const kinds = [...new Set(data.sourceMetadata.map(item => item.kind))].join(' + ');
+    const spacing = 21344000 / 2 ** plan.z / 64;
+    detail.textContent = `${kinds} terrain · ~${Math.round(spacing)} m grid at equator · 1× relief`;
+    sourceLink.textContent = `Point source: ${source.kind} · ${source.prepared_resolution_m >= 1000 ? (source.prepared_resolution_m / 1000).toFixed(1) + ' km' : source.prepared_resolution_m + ' m'} native/prepared samples`;
+    detail.dataset.level = String(plan.z); detail.dataset.tiles = String(plan.tiles.length); errorText.textContent = '';
+  } catch (error) {
+    if (error.name !== 'AbortError' && !controller.signal.aborted) {
+      errorText.textContent = `Terrain unavailable: ${error.message}. Existing terrain remains visible.`; retryAt = performance.now() + 10000;
     }
-    for (let i = 0; i < border.length; i++) {
-      const next = (i + 1) % border.length;
-      if (grid.elevations_m[border[i]] !== null && grid.elevations_m[border[next]] !== null)
-        indices.push(previousRing[i], currentRing[i], previousRing[next], previousRing[next], currentRing[i], currentRing[next]);
-    }
-    previousRing = currentRing;
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const mesh = new THREE.Mesh(geometry, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, side: THREE.DoubleSide }));
-  mesh.position.copy(center);
-  mesh.userData = { site: metadata.site, surfaceTriangles, sourceVertices: grid.rows * grid.cols, centerLonLat: metadata.center };
-  scene.add(mesh);
-  return { mesh, center, metadata };
+  } finally { if (pending === controller) requestedKey = ''; }
 }
-
 async function initialize() {
-  const mola = await get(root + 'manifest');
-  const [radiusBuffer, areoidBuffer, ...grids] = await Promise.all([
-    get(root + 'radius.i16', true), get(root + 'areoid.i16', true),
-    ...mola.patches.map(patch => get(API_BASE + patch.grid))
-  ]);
-  const radiusGrid = new Int16Array(radiusBuffer), areoidGrid = new Int16Array(areoidBuffer);
-  if (radiusGrid.length !== mola.width * mola.height || areoidGrid.length !== radiusGrid.length)
-    throw Error('Incomplete MOLA elevation data');
-  const geometry = new THREE.SphereGeometry(280, 720, 360);
-  const position = geometry.attributes.position, uv = geometry.attributes.uv;
+  mola = await api.json('/api/v1/globe/manifest');
+  const response = await fetch(api.base + '/api/v1/globe/radius.i16');
+  if (!response.ok) throw Error(`MOLA unavailable: HTTP ${response.status}`);
+  radiusGrid = new Int16Array(await response.arrayBuffer());
+  if (radiusGrid.length !== mola.width * mola.height) throw Error('Incomplete global MOLA data');
+  const geometry = new THREE.SphereGeometry(280, 720, 360), position = geometry.attributes.position, uv = geometry.attributes.uv;
   for (let i = 0; i < position.count; i++) {
     const lon = uv.getX(i) * 360 - 180, lat = uv.getY(i) * 180 - 90;
-    const radius = sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m);
-    position.setXYZ(i, ...planetPoint(lon, lat, radius));
+    position.setXYZ(i, ...planetPoint(lon, lat, sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m)));
   }
   geometry.computeVertexNormals();
-  const baseRadiusAt = (longitude, latitude) => {
-    const u = (longitude + 180) / 360, v = (latitude + 90) / 180;
-    const column = Math.floor(u * 720), row = Math.floor((1 - v) * 360);
-    const direction = vector(planetPoint(longitude, latitude, 1)).normalize();
-    const ray = new THREE.Ray(new THREE.Vector3(), direction);
+  baseRadiusAt = (longitude, latitude) => {
+    longitude = ((longitude + 180) % 360 + 360) % 360 - 180;
+    const column = Math.floor((longitude + 180) * 2), row = Math.floor((90 - latitude) * 2);
+    const direction = vector(planetPoint(longitude, latitude, 1)).normalize(), ray = new THREE.Ray(new THREE.Vector3(), direction);
     const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), hit = new THREE.Vector3();
-    for (let y = Math.max(0, row - 1); y <= Math.min(359, row + 1); y++) {
-      for (let x = Math.max(0, column - 1); x <= Math.min(719, column + 1); x++) {
-        const topLeft = y * 721 + x, topRight = topLeft + 1, bottomLeft = topLeft + 721, bottomRight = bottomLeft + 1;
-        for (const indices of [[topRight, topLeft, bottomRight], [topLeft, bottomLeft, bottomRight]]) {
-          a.fromBufferAttribute(position, indices[0]); b.fromBufferAttribute(position, indices[1]); c.fromBufferAttribute(position, indices[2]);
-          if (ray.intersectTriangle(a, b, c, false, hit)) return hit.length() / SCALE;
-        }
+    for (let y = Math.max(0, row - 1); y <= Math.min(359, row + 1); y++) for (let x = Math.max(0, column - 1); x <= Math.min(719, column + 1); x++) {
+      const tl = y * 721 + x, tr = tl + 1, bl = tl + 721, br = bl + 1;
+      for (const indices of [[tr, tl, br], [tl, bl, br]]) {
+        a.fromBufferAttribute(position, indices[0]); b.fromBufferAttribute(position, indices[1]); c.fromBufferAttribute(position, indices[2]);
+        if (ray.intersectTriangle(a, b, c, false, hit)) return hit.length() / SCALE;
       }
     }
-    throw Error('Unable to join patch to the MOLA globe');
+    return sampleMola(radiusGrid, mola.width, mola.height, longitude, latitude, mola.offset_m);
   };
-  const texture = await new THREE.TextureLoader().loadAsync(API_BASE + '/api/v1/basemaps/mars-color');
-  texture.colorSpace = THREE.SRGBColorSpace;
+  texture = await new THREE.TextureLoader().loadAsync(api.base + '/api/v1/basemaps/mars-color');
+  texture.colorSpace = THREE.SRGBColorSpace; texture.wrapS = THREE.RepeatWrapping;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.95 });
-  const regions = mola.patches.map(patch => {
-    // Mask the globe through the outer edge of the display-only collar.
-    const [w, s, e, n] = patch.bounds;
-    const [cx, cy] = patch.center;
-    const [spanX, spanY] = patch.display_span_m;
-    const scaleX = 1 + 1470/spanX, scaleY = 1 + 1470/spanY;
-    // Slight overlap with the outer collar covers subpixel/depth rounding at
-    // orbit-to-ground scales; fine scientific vertices remain untouched.
-    const [west, south, east, north] = [cx + (w-cx)*scaleX, cy + (s-cy)*scaleY, cx + (e-cx)*scaleX, cy + (n-cy)*scaleY];
-    return new THREE.Vector4((west + 180) / 360, (south + 90) / 180, (east + 180) / 360, (north + 90) / 180);
-  });
+  const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 1 });
   material.onBeforeCompile = shader => {
-    shader.uniforms.patchRegions = { value: regions };
-    shader.vertexShader = 'varying vec3 terrainPosition;\n' + shader.vertexShader;
-    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nterrainPosition = position;');
-    shader.fragmentShader = `varying vec3 terrainPosition;\nuniform vec4 patchRegions[${regions.length}];\n` + shader.fragmentShader;
-    shader.fragmentShader = shader.fragmentShader.replace('#include <clipping_planes_fragment>',
-      `#include <clipping_planes_fragment>\nvec3 direction = normalize(terrainPosition); vec2 terrainUV=vec2(atan(-direction.z,direction.x)/6.28318530718+0.5, asin(direction.y)/3.14159265359+0.5); for (int i=0;i<${regions.length};i++){ vec4 b=patchRegions[i]; if(terrainUV.x>b.x && terrainUV.x<b.z && terrainUV.y>b.y && terrainUV.y<b.w) discard; }`);
+    shader.uniforms.terrainBounds = { value: mask };
+    shader.vertexShader = 'varying vec3 planetPosition;\n' + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nplanetPosition=position;');
+    shader.fragmentShader = 'varying vec3 planetPosition; uniform vec4 terrainBounds;\n' + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
+      vec3 direction=normalize(planetPosition); float lon=degrees(atan(-direction.z,direction.x)); float lat=degrees(asin(direction.y));
+      float mid=(terrainBounds.x+terrainBounds.z)*0.5; lon=mid+mod(lon-mid+540.0,360.0)-180.0;
+      if(terrainBounds.z>terrainBounds.x && lon>terrainBounds.x && lon<terrainBounds.z && lat>terrainBounds.y && lat<terrainBounds.w) discard;`);
   };
-  scene.add(new THREE.Mesh(geometry, material));
-  mola.patches.forEach((patch, i) => patches.set(patch.site, createPatch(patch, grids[i], mola, radiusGrid, areoidGrid, baseRadiusAt)));
+  baseMesh = new THREE.Mesh(geometry, material); scene.add(baseMesh);
   for (const button of buttons) {
-    button.disabled = false;
-    button.addEventListener('click', () => focus(button.dataset.site));
+    button.disabled = false; button.addEventListener('click', () => {
+      const site = button.dataset.site;
+      if (site === 'mars') reset();
+      else { const patch = mola.patches.find(item => item.site === site); explore(...patch.center, site === 'gale' ? 'Gale crater' : 'Jezero crater', site === 'gale' ? 23000 : 2200, site); }
+    });
   }
-  const requested = new URLSearchParams(location.search).get('site');
-  focus(patches.has(requested) ? requested : 'mars');
+  document.querySelector('#location-form button').disabled = false;
+  const requested = new URLSearchParams(location.search).get('site'), patch = mola.patches.find(item => item.site === requested);
+  if (patch) explore(...patch.center, requested === 'gale' ? 'Gale crater' : 'Jezero crater', requested === 'gale' ? 23000 : 2200, requested);
+  else reset();
 }
-
+document.querySelector('#location-form').addEventListener('submit', event => {
+  event.preventDefault(); explore(Number(document.querySelector('#longitude').value), Number(document.querySelector('#latitude').value));
+});
+renderer.domElement.addEventListener('dblclick', event => {
+  if (!baseMesh || flight) return;
+  const rect = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
+  const hit = ray.intersectObjects(terrain ? [terrain.mesh, baseMesh] : [baseMesh])[0];
+  if (!hit) return;
+  const p = hit.point.clone().normalize(), latitude = Math.asin(p.y) * 180 / Math.PI, longitude = Math.atan2(-p.z, p.x) * 180 / Math.PI;
+  explore(longitude, latitude, 'Selected location', local ? Math.max(300, camera.position.distanceTo(controls.target) / SCALE / 2) : 100000);
+});
 renderer.setAnimationLoop(now => {
   if (flight) {
-    const t = Math.min(1, (now - flight.started) / 700), ease = (1 - Math.cos(t * Math.PI)) / 2;
-    camera.position.lerpVectors(flight.position, flight.endPosition, ease);
-    controls.target.lerpVectors(flight.target, flight.endTarget, ease);
-    camera.up.lerpVectors(flight.up, flight.endUp, ease).normalize();
-    camera.lookAt(controls.target);
-    if (t === 1) {
-      // OrbitControls captures the up-axis on construction. Recreate it after
-      // a globe/ground transition so local orbit stays above the selected patch.
-      const target = flight.endTarget.clone();
-      controls.dispose();
-      controls = new OrbitControls(camera, renderer.domElement);
-      controls.target.copy(target);
-      controls.enableDamping = true;
-      controls.enablePan = false;
-      controls.minDistance = activeSite === 'mars' ? 300 : 200 * SCALE;
-      controls.maxDistance = 6000;
-      controls.minPolarAngle = 0.05;
-      controls.maxPolarAngle = activeSite === 'mars' ? Math.PI - 0.05 : Math.PI / 2 - 0.05;
-      controls.update();
-      flight = null;
-    }
+    const t = Math.min(1, (now - flight.start) / 850), ease = (1 - Math.cos(t * Math.PI)) / 2;
+    camera.position.lerpVectors(flight.from, flight.to, ease); controls.target.lerpVectors(flight.target, flight.endTarget, ease);
+    camera.up.lerpVectors(flight.up, flight.endUp, ease).normalize(); camera.lookAt(controls.target);
+    if (t === 1) { const target = flight.endTarget; flight = null; makeControls(target); }
   } else controls.update();
-  inspectionLight.position.copy(camera.position);
+  if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
+    selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain();
+    inspection.intensity = 0; setActive('mars'); sourceLink.hidden = true;
+    status.textContent = 'Mars · global MOLA relief'; detail.textContent = 'Double-click the surface to explore';
+    camera.up.set(0, 1, 0); makeControls();
+  }
+  if (local && !flight && radiusGrid) {
+    const radial = camera.position.length(), latitude = Math.asin(camera.position.y / radial) * 180 / Math.PI;
+    const longitude = Math.atan2(-camera.position.z, camera.position.x) * 180 / Math.PI;
+    let ground = sampleMola(radiusGrid, mola.width, mola.height, longitude, latitude, mola.offset_m);
+    if (terrain) {
+      const { data } = terrain, [west, south, east, north] = data.bounds;
+      const lon = (west + east) / 2 + ((longitude - (west + east) / 2 + 540) % 360) - 180;
+      if (lon >= west && lon <= east && latitude >= south && latitude <= north) {
+        const x = Math.round((lon - west) / (east - west) * (data.cols - 1));
+        const y = Math.round((north - latitude) / (north - south) * (data.rows - 1)); ground = data.radii[y * data.cols + x];
+      }
+    }
+    const safe = (ground + 75) * SCALE; if (radial < safe) camera.position.multiplyScalar(safe / radial);
+  }
+  inspection.position.copy(camera.position); inspection.target.position.copy(controls.target);
   document.querySelector('#range').textContent = `${(camera.position.distanceTo(controls.target) / SCALE / 1000).toFixed(1)} km view range`;
-  renderer.render(scene, camera);
+  updateTerrain(now); renderer.render(scene, camera);
 });
-addEventListener('resize', () => {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-});
-initialize().catch(error => {
-  document.querySelector('#error').textContent = error.message;
-  status.textContent = 'Terrain loading failed';
-  console.error(error);
-});
+addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+initialize().catch(error => { errorText.textContent = error.message; status.textContent = 'Terrain loading failed'; console.error(error); });

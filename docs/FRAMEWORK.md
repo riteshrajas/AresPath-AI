@@ -82,18 +82,19 @@ in its worker thread pool rather than an async event loop.
 
 Six backend tests cover real-raster sample equality, global fallback, empty data,
 input bounds, shared tile edges, conditional caching and registry geography.
-Three frontend tests cover coordinate conversion, cache/cancellation and explicit
-API failures. The frontend production build passes; Vite reports its shared
+Six frontend tests cover coordinate conversion, cache/cancellation, explicit
+API failures, zoom planning, dateline/pole indices, grid assembly, mixed revisions
+and bounded concurrency. The frontend production build passes; Vite reports its shared
 Three.js chunk exceeds 500 kB minified (about 126 kB gzipped).
 
 Browser checks observed the API-backed Gale globe, a Gale tile with HiRISE/CTX,
 and a tile at 0 degrees longitude/latitude explicitly reporting 100% MOLA.
 A browser-only fetch binding bug was corrected during this check.
 
-The globe still loads prepared region grids; **automatic camera-driven global
-tile selection, level-of-detail transitions, crack-free tile stitching, broader
-high-resolution ingestion and photometric/vertical source harmonization remain
-unfinished**. The tile explorer is the working client of the global tile API.
+The globe now selects terrain windows by view range around a selected surface
+location. See [globe streaming](GLOBE_STREAMING.md). **A full visible-planet quadtree,
+seam-free source harmonization, broader high-resolution ingestion and photometric
+matching remain unfinished**. Both the globe and tile explorer use the global API.
 The existing Gale source offsets and render collar are documented in the linked
 scientific handoffs. The color basemap's registration has not been independently
 validated. This is not a navigation safety product or new stereo reconstruction.
