@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AresPath — Terrain Tiles</title>
+<style>
+body{margin:0;background:#10151e;color:#eff1f5;font:14px system-ui}canvas{display:block}aside{position:absolute;top:20px;left:20px;width:min(300px,calc(100vw - 72px));padding:16px;background:#10151eee;border:1px solid #536172;border-radius:12px}h1{font-size:20px;margin:0 0 12px}label{display:block;margin:12px 0}input{display:block;margin-top:4px;width:95%;padding:7px;background:#263244;border:1px solid #637080;border-radius:5px;color:white}button{padding:9px 14px;background:#a6502f;border:1px solid #df976a;border-radius:6px;color:white;cursor:pointer}p{line-height:1.5}a{color:#aad5ff}#status{color:#d7cbbd}small{color:#b5bfca}
+</style>
+</head>
+<body>
+<aside><h1>AresPath · Terrain tiles</h1><a href="/">Back to Mars globe</a>
+<form id="tile-form">
+<label>Longitude east (−180 to 180)<input id="longitude" type="number" min="-180" max="180" step="any" value="138.3497866414" required></label>
+<label>Latitude (−90 to 90)<input id="latitude" type="number" min="-90" max="90" step="any" value="-4.9236258419" required></label>
+<label>Detail level (0–18)<input id="zoom" type="number" min="0" max="18" step="1" value="12" required></label>
+<button type="submit">Load terrain</button></form>
+<p id="status" role="status">Connecting to terrain API…</p>
+<p id="coverage"></p><a id="json" hidden target="_blank" rel="noopener">View tile data and provenance</a>
+<p><small>Drag to orbit · scroll to zoom. Real-scale relief. Colors identify source: orange HiRISE, blue CTX, gray MOLA. A finer tile grid does not create finer source measurements. Source-boundary height offsets remain uncorrected.</small></p>
+</aside>
+<script type="module" src="/src/tile-viewer.js"></script>
+</body></html>

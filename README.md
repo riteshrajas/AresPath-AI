@@ -12,6 +12,14 @@
 
 ## 🚀 Mission Overview
 
+**Current application framework:** [`frontend/`](frontend/) is the independent
+Vite/Three.js app; [`backend/`](backend/) is the FastAPI terrain service. Start
+with the [run instructions and API contract](docs/FRAMEWORK.md). Both the globe
+and arbitrary-coordinate tile explorer use the backend. Global coverage uses
+coarse MOLA; detailed prepared data is limited to Jezero and Gale. Automatic
+camera-driven global tile streaming remains unfinished. The broader mission
+capabilities described below are aspirations, not verified implemented features.
+
 **Expanded Gale map:** The active globe includes the [10-km-radius Gale mosaic](docs/GALE_10KM.md). Valid source coverage is complete within the requested radius: about 29.5% HiRISE and 70.5% CTX, displayed on a 40-m mesh. The sources have measured vertical offsets and may show seams; the original small terrain files remain available.
 
 **Current globe UI:** `web/index.html` renders coarse measured MOLA planetary radii and places the verified Jezero and Gale HiRISE patches at their source coordinates. Three small navigation buttons move between the globe and the patches in one scene; procedural site models, hazard controls and simulated telemetry remain removed. See [globe stitching details and reproduction](docs/GLOBE_STITCHING.md). The separate terrain viewer and scientific output files remain available.

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AresPath — Mars Globe</title>
+<style>
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#020306;color:#f8fafc;font-family:system-ui,sans-serif}#canvas-container{position:fixed;inset:0}canvas{display:block;touch-action:none}header{position:absolute;top:24px;left:28px;pointer-events:auto}h1{margin:0;font-size:19px;font-weight:750;letter-spacing:2px;color:#ff8c73}header p{margin:7px 0 0;font-size:12px;letter-spacing:1px;color:#a3abb9}footer{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#b0b6c2;font-size:12px;text-align:center;white-space:nowrap;pointer-events:none}#error{position:absolute;bottom:55px;left:24px;right:24px;color:#ffc5b3;text-align:center}@media(max-width:600px){header{top:20px;left:20px}footer{width:90%;white-space:normal}}
+nav{display:flex;gap:8px;margin-top:14px}button{border:1px solid #56616d;background:#111820cc;color:#d9e0e8;padding:7px 14px;border-radius:20px;cursor:pointer}button[aria-pressed="true"]{border-color:#dd8f6b;color:#ffb796}button:disabled{opacity:.5;cursor:wait}#source{display:inline-block;margin-top:10px;color:#b1c7dc;font-size:12px}#source[hidden]{display:none}#status{max-width:min(520px,85vw);line-height:1.5;text-transform:none;letter-spacing:0}
+.tool-link{color:#b1c7dc;padding:7px 12px;font-size:12px}</style>
+
+</head>
+<body>
+<div id="canvas-container"></div>
+<header><h1>ARESPATH</h1><p id="status" role="status">Loading MOLA and HiRISE terrain…</p><nav aria-label="Terrain locations"><button data-site="mars" disabled aria-pressed="true">Mars</button><button data-site="jezero" disabled aria-pressed="false">Jezero</button><button data-site="gale" disabled aria-pressed="false">Gale</button><a href="/tiles.html" class="tool-link">Terrain tiles</a></nav><a id="source" hidden target="_blank" rel="noopener">HiRISE source · elevation colors</a></header>
+<footer>Drag to rotate · Scroll or pinch to zoom · <span id="range">Orbital view</span></footer>
+<p id="error" role="alert"></p>
+<script type="module" src="/src/globe.js"></script>
+</body>
+</html>

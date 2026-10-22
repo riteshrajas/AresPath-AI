@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "sources": [
+    {"id":0,"kind":"MOLA","name":"MOLA global 4 pixels/degree","prepared_resolution_m":14818,"reference":"https://pds-geosciences.wustl.edu/missions/mgs/megdr.html","limitations":["Coarse global data, including interpolated bins; denser tile nodes do not add source detail"]},
+    {"id":1,"kind":"HiRISE","name":"Jezero original HiRISE crop","prepared_resolution_m":1.01},
+    {"id":2,"kind":"HiRISE","name":"Gale original HiRISE crop","prepared_resolution_m":1.01},
+    {"id":3,"kind":"CTX","name":"Gale regional CTX mosaic cells","prepared_resolution_m":20},
+    {"id":4,"kind":"HiRISE","name":"Gale regional HiRISE mosaic cells","prepared_resolution_m":20,"limitations":["HiRISE reprojected to the regional 20 m raster; this is not a native 1 m tile"]}
+  ],
+  "datasets": [
+    {"id":"gale-context","directory":"verified_terrain/gale-10km","source_id":3,"attribution_source_ids":{"CTX":3,"HiRISE":4}},
+    {"id":"jezero","directory":"verified_terrain/jezero","source_id":1},
+    {"id":"gale-detail","directory":"verified_terrain/gale","source_id":2}
+  ]
+}
