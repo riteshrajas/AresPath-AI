@@ -64,22 +64,26 @@ function focus(site) {
   const normal = patch.center.clone().normalize();
   const north = new THREE.Vector3(-Math.sin(lat * Math.PI / 180) * Math.cos(lon * Math.PI / 180),
     Math.cos(lat * Math.PI / 180), Math.sin(lat * Math.PI / 180) * Math.sin(lon * Math.PI / 180));
-  const distance = 2600 * SCALE;
+  const distance = Math.max(2600, Math.max(...patch.metadata.display_span_m) * 1.6) * SCALE;
   controls.minDistance = 200 * SCALE;
   inspectionLight.intensity = 1.5;
-  status.textContent = `${site === 'jezero' ? 'Jezero' : 'Gale'} · ${Math.abs(lat).toFixed(4)}°${lat < 0 ? 'S' : 'N'}, ${lon.toFixed(4)}°E · HiRISE relief at 1× scale`;
+  status.textContent = `${site === 'jezero' ? 'Jezero' : 'Gale'} · ${Math.abs(lat).toFixed(4)}°${lat < 0 ? 'S' : 'N'}, ${lon.toFixed(4)}°E · ${patch.metadata.coverage_label || 'HiRISE relief at 1× scale'}`;
   const source = document.querySelector('#source');
   source.hidden = false;
   source.href = patch.metadata.source_page;
+  source.textContent = patch.metadata.source_label || 'HiRISE source · elevation colors';
   fly(patch.center.clone().addScaledVector(normal, distance).addScaledVector(north, -distance * 0.6), patch.center, normal);
 }
 
 function createPatch(metadata, grid, mola, radiusGrid, areoidGrid, baseRadiusAt) {
   const [lon, lat] = metadata.center;
   const sample = (array, x, y) => sampleMola(array, mola.width, mola.height, x, y, mola.offset_m);
-  const valid = grid.elevations_m.filter(z => z !== null);
-  const min = Math.min(...valid), max = Math.max(...valid);
-  const meanElevation = valid.reduce((sum, z) => sum + z, 0) / valid.length;
+  let min = Infinity, max = -Infinity, sum = 0, count = 0;
+  for (const z of grid.elevations_m) if (z !== null) {
+    min = Math.min(min, z); max = Math.max(max, z); sum += z; count++;
+  }
+  if (!count) throw Error('Terrain contains no valid elevations');
+  const meanElevation = sum / count;
   const center = vector(planetPoint(lon, lat, sample(areoidGrid, lon, lat) + meanElevation));
   const positions = [], colors = [];
   for (let y = 0; y < grid.rows; y++) for (let x = 0; x < grid.cols; x++) {
@@ -100,13 +104,16 @@ function createPatch(metadata, grid, mola, radiusGrid, areoidGrid, baseRadiusAt)
   for (let x = grid.cols - 2; x >= 0; x--) border.push((grid.rows - 1) * grid.cols + x);
   for (let y = grid.rows - 2; y > 0; y--) border.push(y * grid.cols);
   let previousRing = border;
+  const [spanX, spanY] = metadata.display_span_m;
+  // Fixed 750 m visual join, rather than doubling a large regional map.
+  const padX = 1500 / spanX, padY = 1500 / spanY;
   for (let ring = 1; ring <= 5; ring++) {
     const t = Math.min(ring / 4, 1), currentRing = [];
     for (let i = 0; i < border.length; i++) {
       const index = border[i], y = Math.floor(index / grid.cols), x = index % grid.cols;
       const tileLon = metadata.longitudes[x], tileLat = metadata.latitudes[y];
-      const longitude = lon + (tileLon - lon) * (1 + t);
-      const latitude = lat + (tileLat - lat) * (1 + t);
+      const longitude = lon + (tileLon - lon) * (1 + t * padX);
+      const latitude = lat + (tileLat - lat) * (1 + t * padY);
       const innerRadius = sample(areoidGrid, tileLon, tileLat) + (grid.elevations_m[index] ?? meanElevation);
       // Join the actual coarse triangle, not its higher-resolution input grid:
       // interpolation/chord differences otherwise leave a visible crack.
@@ -178,9 +185,11 @@ async function initialize() {
     // Mask the globe through the outer edge of the display-only collar.
     const [w, s, e, n] = patch.bounds;
     const [cx, cy] = patch.center;
+    const [spanX, spanY] = patch.display_span_m;
+    const scaleX = 1 + 1470/spanX, scaleY = 1 + 1470/spanY;
     // Slight overlap with the outer collar covers subpixel/depth rounding at
     // orbit-to-ground scales; fine scientific vertices remain untouched.
-    const [west, south, east, north] = [cx + (w-cx)*1.98, cy + (s-cy)*1.98, cx + (e-cx)*1.98, cy + (n-cy)*1.98];
+    const [west, south, east, north] = [cx + (w-cx)*scaleX, cy + (s-cy)*scaleY, cx + (e-cx)*scaleX, cy + (n-cy)*scaleY];
     return new THREE.Vector4((west + 180) / 360, (south + 90) / 180, (east + 180) / 360, (north + 90) / 180);
   });
   material.onBeforeCompile = shader => {

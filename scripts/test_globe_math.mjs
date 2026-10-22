@@ -19,10 +19,16 @@ assert.deepEqual(terrainIndices([0, null, 2, 3], 2, 2), []);
 const metadata = JSON.parse(fs.readFileSync(new URL('../data/verified_terrain/globe/manifest.json', import.meta.url)));
 for (const patch of metadata.patches) {
   assert.ok(patch.inverse_projection_max_error_m < 0.001);
-  const g = JSON.parse(fs.readFileSync(new URL(`../data/verified_terrain/${patch.site}/grid.json`, import.meta.url)));
+  const g = JSON.parse(fs.readFileSync(new URL(`../data/verified_terrain/globe/${patch.grid}`, import.meta.url)));
   assert.equal(patch.longitudes.length, g.cols);
   assert.equal(patch.latitudes.length, g.rows);
-  assert.equal(terrainIndices(g.elevations_m, g.rows, g.cols).length / 3, 131072);
+  const triangleCount = terrainIndices(g.elevations_m, g.rows, g.cols).length / 3;
+  if (!patch.coverage_label) assert.equal(triangleCount, 131072);
+  else {
+    assert.ok(g.rows >= 501 && g.cols >= 501);
+    assert.ok(patch.display_span_m.every(span => span >= 20000));
+    assert.equal(triangleCount, (g.rows-1)*(g.cols-1)*2);
+  }
   const [lon, lat] = patch.center, p = planetPoint(lon, lat, 3396000);
   near(Math.atan2(-p[2], p[0]) * 180 / Math.PI, lon);
   near(Math.asin(p[1] / 280) * 180 / Math.PI, lat);

@@ -12,6 +12,8 @@
 
 ## 🚀 Mission Overview
 
+**Expanded Gale map:** The active globe includes the [10-km-radius Gale mosaic](docs/GALE_10KM.md). Valid source coverage is complete within the requested radius: about 29.5% HiRISE and 70.5% CTX, displayed on a 40-m mesh. The sources have measured vertical offsets and may show seams; the original small terrain files remain available.
+
 **Current globe UI:** `web/index.html` renders coarse measured MOLA planetary radii and places the verified Jezero and Gale HiRISE patches at their source coordinates. Three small navigation buttons move between the globe and the patches in one scene; procedural site models, hazard controls and simulated telemetry remain removed. See [globe stitching details and reproduction](docs/GLOBE_STITCHING.md). The separate terrain viewer and scientific output files remain available.
 
 **Verified terrain deliverable (October 21, 2026):** Small Jezero and Gale patches are generated from published HiRISE DTMs using [`pipeline/verified_terrain.py`](pipeline/verified_terrain.py). See the [reproducible handoff, measured results, and limitations](docs/TERRAIN_HANDOFF.md). The viewer is `web/verified-terrain.html`. This processes existing stereo-derived elevations; it does not perform new raw-image reconstruction. Other terrain generators and the placeholder DepthPro server include procedural/brightness-derived prototypes and must not be presented as verified terrain or measured GPU inference.

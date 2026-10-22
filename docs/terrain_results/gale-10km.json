@@ -1,0 +1,165 @@
+{
+  "site": "gale",
+  "name": "Gale \u2014 10 km radius context",
+  "center": [
+    138.34978664137245,
+    -4.923625841943295
+  ],
+  "requested_radius_m": 10000,
+  "region_shape": "20.04 km square containing the 10 km geodesic radius; corners extend beyond requested disk",
+  "source_page": "../data/verified_terrain/gale-10km/manifest.json",
+  "source_label": "HiRISE + CTX source manifest",
+  "method": "Bilinear-reproject source windows to 20 m; CTX hole-fill then valid HiRISE override; no vertical bias correction",
+  "crs_wkt": "PROJCS[\"unknown\",GEOGCS[\"unknown\",DATUM[\"unknown\",SPHEROID[\"unknown\",3396190,0]],PRIMEM[\"Reference meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Equirectangular\"],PARAMETER[\"standard_parallel_1\",-4.9236258419433],PARAMETER[\"central_meridian\",138.349786641372],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+  "origin_projected_easting_northing_m": [
+    -10019.999999972952,
+    -281826.43249912275
+  ],
+  "mesh_spacing_m": [
+    40,
+    40
+  ],
+  "native_pixel_spacing_m": [
+    20,
+    20
+  ],
+  "mesh_extent_between_nodes_m": [
+    20040,
+    20040
+  ],
+  "mesh_grid": [
+    502,
+    502
+  ],
+  "origin_elevation_m": -4370.87548828125,
+  "vertices": 252004,
+  "triangles": 502002,
+  "sources": [
+    {
+      "source_index": 1,
+      "kind": "CTX",
+      "id": "P19_008437_1746_XN_05S221W__P20_008938_1747_XN_05S221W",
+      "url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P19_008437_1746_XN_05S221W__P20_008938_1747_XN_05S221W/P19_008437_1746_XN_05S221W__P20_008938_1747_XN_05S221W-DEM-geoid-adj.tif",
+      "catalog_url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P19_008437_1746_XN_05S221W__P20_008938_1747_XN_05S221W/P19_008437_1746_XN_05S221W__P20_008938_1747_XN_05S221W-DEM-geoid-adj.tif",
+      "collection": "mro_ctx_controlled_usgs_dtms",
+      "source_asset": "geoid_adjusted_dem",
+      "source_resolution_m": 20,
+      "prepared_window_sha256": "fc4617ec5b4db920f8c88c1e6082f33d5a7a3113f4de9d99773462fa843f62f4",
+      "resampling": "bilinear to 20 m",
+      "valid_fraction_in_requested_disk": 0.9999898133162877,
+      "retained_cells_in_requested_disk": 553783
+    },
+    {
+      "source_index": 2,
+      "kind": "CTX",
+      "id": "P20_008938_1747_XN_05S221W__P04_002464_1746_XI_05S221W",
+      "url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P20_008938_1747_XN_05S221W__P04_002464_1746_XI_05S221W/P20_008938_1747_XN_05S221W__P04_002464_1746_XI_05S221W-DEM-geoid-adj.tif",
+      "catalog_url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P20_008938_1747_XN_05S221W__P04_002464_1746_XI_05S221W/P20_008938_1747_XN_05S221W__P04_002464_1746_XI_05S221W-DEM-geoid-adj.tif",
+      "collection": "mro_ctx_controlled_usgs_dtms",
+      "source_asset": "geoid_adjusted_dem",
+      "source_resolution_m": 20,
+      "prepared_window_sha256": "a6a52b9b110aa1c81efa4fe685a67c24e5c454f42e45dd4bb0a820aeb0ba84f8",
+      "resampling": "bilinear to 20 m",
+      "valid_fraction_in_requested_disk": 0.26322772713439674,
+      "retained_cells_in_requested_disk": 4
+    },
+    {
+      "source_index": 3,
+      "kind": "CTX",
+      "id": "P20_008938_1747_XN_05S221W__J21_052888_1751_XN_04S221W",
+      "url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P20_008938_1747_XN_05S221W__J21_052888_1751_XN_04S221W/P20_008938_1747_XN_05S221W__J21_052888_1751_XN_04S221W-DEM-geoid-adj.tif",
+      "catalog_url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P20_008938_1747_XN_05S221W__J21_052888_1751_XN_04S221W/P20_008938_1747_XN_05S221W__J21_052888_1751_XN_04S221W-DEM-geoid-adj.tif",
+      "collection": "mro_ctx_controlled_usgs_dtms",
+      "source_asset": "geoid_adjusted_dem",
+      "source_resolution_m": 20,
+      "prepared_window_sha256": "08a4cccea1fc4d286f73cf4ce61f04b68dcbf7eebdfa009ee4dba8d04afc84d5",
+      "resampling": "bilinear to 20 m",
+      "valid_fraction_in_requested_disk": 0.9486069073355583,
+      "retained_cells_in_requested_disk": 4
+    },
+    {
+      "source_index": 4,
+      "kind": "CTX",
+      "id": "P20_008938_1747_XN_05S221W__J10_048563_1747_XI_05S221W",
+      "url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P20_008938_1747_XN_05S221W__J10_048563_1747_XI_05S221W/P20_008938_1747_XN_05S221W__J10_048563_1747_XI_05S221W-DEM-geoid-adj.tif",
+      "catalog_url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/ctx/controlled/usgs/P20_008938_1747_XN_05S221W__J10_048563_1747_XI_05S221W/P20_008938_1747_XN_05S221W__J10_048563_1747_XI_05S221W-DEM-geoid-adj.tif",
+      "collection": "mro_ctx_controlled_usgs_dtms",
+      "source_asset": "geoid_adjusted_dem",
+      "source_resolution_m": 20,
+      "prepared_window_sha256": "2a3500429bbb1ffd4dbb4ad42ec509c9c994c30ce0a024550923cebd30806901",
+      "resampling": "bilinear to 20 m",
+      "valid_fraction_in_requested_disk": 0.9999108665175166,
+      "retained_cells_in_requested_disk": 0
+    },
+    {
+      "source_index": 5,
+      "kind": "HiRISE",
+      "id": "DTEEC_016520_1750_016375_1750_A01",
+      "url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/hirise/controlled/dtm/ESP_016520_1750_ESP_016375_1750/DTEEC_016520_1750_016375_1750_A01.tif",
+      "catalog_url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/hirise/controlled/dtm/DTEEC_016520_1750_016375_1750_A01.tif",
+      "collection": "mro_hirise_socet_dtms",
+      "source_asset": "dtm",
+      "source_resolution_m": 1.0120642516042044,
+      "prepared_window_sha256": "20c648633ba8261d6155a3618d304aeb925c2fc669676f648fab7a3512f840b6",
+      "resampling": "bilinear to 20 m",
+      "valid_fraction_in_requested_disk": 0.0884598880228793,
+      "difference_from_previous_mosaic_m": {
+        "median": 52.155517578125,
+        "p95_absolute": 81.11871337890625
+      },
+      "retained_cells_in_requested_disk": 69471
+    },
+    {
+      "source_index": 6,
+      "kind": "HiRISE",
+      "id": "DTEEC_008437_1750_008938_1750_U01",
+      "url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/hirise/controlled/dtm/PSP_008437_1750_PSP_008938_1750/DTEEC_008437_1750_008938_1750_U01.tif",
+      "catalog_url": "https://astrogeo-ard.s3-us-west-2.amazonaws.com/mars/mro/hirise/controlled/dtm/PSP_008437_1750_PSP_008938_1750/DTEEC_008437_1750_008938_1750_U01.tif",
+      "collection": "mro_hirise_socet_dtms",
+      "source_asset": "dtm",
+      "source_resolution_m": 1.0117414489698784,
+      "prepared_window_sha256": "b76be7489977c408bcbd3a9707619a20d21244325b9535661322609531854cf8",
+      "resampling": "bilinear to 20 m",
+      "valid_fraction_in_requested_disk": 0.2063783920065093,
+      "difference_from_previous_mosaic_m": {
+        "median": 51.44775390625,
+        "p95_absolute": 74.58154296875
+      },
+      "retained_cells_in_requested_disk": 162077
+    }
+  ],
+  "source_coverage_in_requested_disk": {
+    "CTX": {
+      "cells": 553791,
+      "fraction": 0.7051617199706114
+    },
+    "HiRISE": {
+      "cells": 231548,
+      "fraction": 0.29483828002938856
+    }
+  },
+  "valid_fraction_in_requested_disk": 1.0,
+  "valid_fraction_in_square": 1.0,
+  "elevation_min_m": -4370.87548828125,
+  "elevation_max_m": -1606.526123046875,
+  "created_utc": "2026-10-22T02:53:11.801640+00:00",
+  "runtime_seconds": 4.043967099998554,
+  "verification": {
+    "all_requested_disk_cells_have_real_source": true,
+    "export_matches_prepared_source_at_every_attributed_cell": true
+  },
+  "limitations": [
+    "Mixed source resolutions; 20 m raster and 40 m mesh do not imply uniform HiRISE resolution",
+    "Bilinear reprojection changes sampled values; original source-window caches are retained",
+    "Inter-product control differences may create visible boundaries; no bias correction performed",
+    "Vertical datums treated as compatible, not independently calibrated",
+    "Elevation colors, not photographic texture; no source imagery reconstruction ran"
+  ],
+  "outputs_sha256": {
+    "elevation.tif": "4934baeb0be0d9a3871d6f19599b606eda280ff2586a127357cd2c6506d7446a",
+    "source_index.tif": "82d7bffd57be134ebaae733d03b934ccd1e80e8ed6448e4ae72c4d851997cffa",
+    "grid.json": "841cb4e4c2f02922ae665b570da423eb8da4ac36ec07f6dff373b7281fbd59b2",
+    "terrain.obj": "cbb325e656e20998ee9879d37d5d9f46f593f7a19f9912d52e62ed77d3a10f41",
+    "source_coverage.png": "177333b25353aae5e25311c21b0f85d1a2bbc9d6e186ea6cc3f84bee558e2ef2"
+  }
+}

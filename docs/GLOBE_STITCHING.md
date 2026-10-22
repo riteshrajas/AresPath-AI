@@ -1,5 +1,7 @@
 # Georeferenced Mars globe and HiRISE patches
 
+**Gale expansion:** The active Gale view now uses a [10-km-radius HiRISE/CTX mosaic](GALE_10KM.md), with a 20-m scientific raster and 40-m display mesh. Original small patches are preserved. The mixed-source coverage, measured inter-product offsets, and limits in that guide supersede the original Gale-only detail below.
+
 The globe page now renders both scientific patches in the same planetary scene. **Mars**, **Jezero**, and **Gale** move the camera; they do not swap to unrelated local models. Patch centers come from the actual crop CRS and affine transform, not the rover landing locations:
 
 | Patch | Planetocentric latitude | East longitude |

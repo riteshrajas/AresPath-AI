@@ -1,0 +1,9 @@
+{
+  "requested_radius_m": 10000,
+  "geodesic_boundary_samples_with_valid_sources": 720,
+  "boundary_samples_total": 720,
+  "obj_vertices": 252004,
+  "obj_triangles": 502002,
+  "coverage_reported": 1.0,
+  "passed": true
+}

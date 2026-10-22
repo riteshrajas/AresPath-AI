@@ -36,6 +36,9 @@ def main():
     patches = []
     for site in ['jezero', 'gale']:
         path = ROOT / 'data' / 'verified_terrain' / site
+        expanded = ROOT / 'data' / 'verified_terrain' / 'gale-10km'
+        if site == 'gale' and (expanded / 'manifest.json').exists():
+            path = expanded
         metadata = json.loads((path / 'manifest.json').read_text())
         grid = json.loads((path / 'grid.json').read_text())
         crs = CRS.from_wkt(metadata['crs_wkt'])
@@ -58,7 +61,10 @@ def main():
                  'latitudes': latitude[:, 0].tolist(),
                  'center': [float(longitude.mean()), float(latitude.mean())],
                  'bounds': [float(longitude.min()), float(latitude.min()), float(longitude.max()), float(latitude.max())],
-                 'grid': '../' + site + '/grid.json', 'source_page': grid['source_page'],
+                 'grid': '../' + path.name + '/grid.json', 'source_page': grid['source_page'],
+                 'source_label': grid.get('source_label', 'HiRISE source · elevation colors'),
+                 'coverage_label': grid.get('coverage_label'),
+                 'display_span_m': metadata['mesh_extent_between_nodes_m'],
                  'inverse_projection_max_error_m': error,
                  'source_manifest_sha256': sha256(path / 'manifest.json')}
         patches.append(patch)
