@@ -15,8 +15,9 @@
 **Current application framework:** [`frontend/`](frontend/) is the independent
 Vite/Three.js app; [`backend/`](backend/) is the FastAPI terrain service. Start
 with the [run instructions and API contract](docs/FRAMEWORK.md). Both the globe
-and arbitrary-coordinate tile explorer use the backend. Global coverage uses
-coarse MOLA; detailed prepared data is limited to Jezero and Gale. Automatic
+and arbitrary-coordinate tile explorer use the backend. A [global 200 m HRSC/MOLA
+blend](docs/GLOBAL_TERRAIN.md) supplies denser zoom terrain, with coarse MOLA as
+fallback. Finer CTX/HiRISE data remains limited to Jezero and Gale. Automatic
 zoom-driven terrain windows now load directly on the globe after selecting a
 location by double-click, coordinates or a site button. This uses a bounded local
 tile window, not a full planetary quadtree. The broader mission

@@ -14,7 +14,7 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x342219, 2));
 const light = new THREE.DirectionalLight(0xffffff, 2); light.position.set(-1, 2, 1); scene.add(light);
 let mesh, controller;
 const status = document.querySelector('#status');
-const palette = { MOLA: '#737d89', CTX: '#548aa7', HiRISE: '#c77f4f' };
+const palette = { MOLA: '#737d89', 'HRSC/MOLA': '#aa985c', CTX: '#548aa7', HiRISE: '#c77f4f' };
 
 function display(data) {
   const { rows, cols, radii_m: radii, source_ids: sourceIds } = data.grid;

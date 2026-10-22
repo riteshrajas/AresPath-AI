@@ -58,7 +58,7 @@ class TerrainStore:
                                                  [left, right], [bottom, top])
             self.datasets.append({'id': identifier, 'path': path, 'source_id': source_id,
                                   'attribution_source_ids':entry.get('attribution_source_ids'),
-                                  'bounds': [(longitude[0]+180)%360-180, min(latitude), (longitude[1]+180)%360-180, max(latitude)],
+                                  'bounds': entry.get('bounds', [(longitude[0]+180)%360-180, min(latitude), (longitude[1]+180)%360-180, max(latitude)]),
                                   'metadata': metadata})
         signature = []
         for path in sorted((self.root/'verified_terrain').rglob('*')) if (self.root/'verified_terrain').exists() else []:
@@ -128,6 +128,7 @@ class TerrainStore:
                                 'y_direction':'north-to-south', 'max_zoom':18, 'grid_sizes':[33,65,129]},
                 'sources': self.sources, 'unavailable_datasets':self.unavailable,
                 'datasets': [{'id':d['id'], 'bounds':d['bounds'], 'available':True,
+                              'manifest':f'/api/v1/datasets/{d["id"]}/manifest',
                               'warnings':d['metadata'].get('limitations', [])} for d in self.datasets],
                 'limitations':['High-resolution coverage is limited to prepared datasets',
                                'Tile grid spacing is not source resolution',

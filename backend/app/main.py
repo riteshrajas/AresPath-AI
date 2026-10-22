@@ -83,6 +83,13 @@ def create_app(data_root=None):
     def region_asset(site:Literal['gale','jezero'],asset:Literal['grid','manifest']):
         return file(store.region_dir(site)/(asset+'.json'),'application/json')
 
+    @api.get('/datasets/{dataset_id}/manifest')
+    def dataset_manifest(dataset_id:str):
+        dataset=next((item for item in store.datasets if item['id']==dataset_id),None)
+        if dataset is None:
+            raise HTTPException(404,'Prepared dataset is not available')
+        return file(dataset['path']/'manifest.json','application/json')
+
     @api.get('/basemaps/mars-color')
     def basemap():
         return file(REPO/'web/assets/mars_globe_8k.jpg','image/jpeg')

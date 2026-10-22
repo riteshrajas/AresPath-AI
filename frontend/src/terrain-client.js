@@ -14,7 +14,9 @@ export class TerrainClient {
     this.cache = new Map();
   }
   async json(path, signal) {
-    const response = await this.request(this.base + path, { signal });
+    // Validate stored HTTP responses after catalog/source revisions change.
+    // The bounded in-session tile cache still avoids repeated fetches.
+    const response = await this.request(this.base + path, { signal, cache: 'no-cache' });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       throw Error(typeof body.detail === 'string' ? body.detail : `Terrain API returned HTTP ${response.status}`);

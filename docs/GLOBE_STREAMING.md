@@ -1,5 +1,9 @@
 # Zoom-driven terrain on the globe
 
+**Global data update:** [The 200 m HRSC/MOLA layer](GLOBAL_TERRAIN.md) now supplies
+zoom terrain outside Jezero/Gale when prepared. The verification table below
+records the earlier streaming milestone before this global dataset was ingested.
+
 The main frontend now keeps the measured MOLA globe as its global context and
 requests regional terrain tiles after selecting a point. The former eager Jezero
 and Gale grid overlays are removed from this frontend; the older `web/` viewer
@@ -68,7 +72,8 @@ unit-tested, but all polar camera angles have not been browser-verified.
 Level changes are atomic and can visibly pop. Source boundaries and vertical
 offsets can appear as steps or steep walls, and joins can remain visible. There
 is no claim of seamless scientific blending. HiRISE/CTX coverage is still limited
-to the prepared Jezero/Gale datasets; no additional data was ingested. The inherited
+to the prepared Jezero/Gale datasets. The later global blend ingestion does not
+expand HiRISE/CTX footprints. The inherited
 8k basemap becomes blurry close to the ground and its geographic registration
 has not been independently validated. High-resolution imagery streaming, source
 harmonization, a full quadtree and cloud deployment remain future work.

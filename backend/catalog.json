@@ -5,9 +5,11 @@
     {"id":1,"kind":"HiRISE","name":"Jezero original HiRISE crop","prepared_resolution_m":1.01},
     {"id":2,"kind":"HiRISE","name":"Gale original HiRISE crop","prepared_resolution_m":1.01},
     {"id":3,"kind":"CTX","name":"Gale regional CTX mosaic cells","prepared_resolution_m":20},
-    {"id":4,"kind":"HiRISE","name":"Gale regional HiRISE mosaic cells","prepared_resolution_m":20,"limitations":["HiRISE reprojected to the regional 20 m raster; this is not a native 1 m tile"]}
+    {"id":4,"kind":"HiRISE","name":"Gale regional HiRISE mosaic cells","prepared_resolution_m":20,"limitations":["HiRISE reprojected to the regional 20 m raster; this is not a native 1 m tile"]},
+    {"id":5,"kind":"HRSC/MOLA","name":"USGS global HRSC/MOLA blend v2","prepared_resolution_m":200,"reference":"https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m","limitations":["200 m grid spacing is not uniform 200 m HRSC stereo detail","The blend includes MOLA; per-cell instrument attribution is not available here"]}
   ],
   "datasets": [
+    {"id":"global-200m","directory":"verified_terrain/global-200m","source_id":5,"bounds":[-180,-90,180,90]},
     {"id":"gale-context","directory":"verified_terrain/gale-10km","source_id":3,"attribution_source_ids":{"CTX":3,"HiRISE":4}},
     {"id":"jezero","directory":"verified_terrain/jezero","source_id":1},
     {"id":"gale-detail","directory":"verified_terrain/gale","source_id":2}

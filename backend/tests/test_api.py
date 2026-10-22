@@ -49,8 +49,32 @@ def test_real_native_height_and_provenance(client):
     result=client.get('/api/v1/coverage',params={'longitude':lon[0],'latitude':lat[0]}).json()
     assert result['selected_source']['id']==2
     assert result['height_above_areoid_m']==pytest.approx(expected,abs=.0001)
-    coarse=client.get('/api/v1/coverage?longitude=0&latitude=0').json()
-    assert coarse['selected_source']['kind']=='MOLA'
+    global_point=client.get('/api/v1/coverage?longitude=0&latitude=0').json()
+    expected_kind = 'HRSC/MOLA' if (ROOT/'data/verified_terrain/global-200m/manifest.json').exists() else 'MOLA'
+    assert global_point['selected_source']['kind']==expected_kind
+
+
+def test_global_native_height_and_polar_fallback(client):
+    path = ROOT/'data/verified_terrain/global-200m/elevation.tif'
+    if not (path.parent/'manifest.json').exists():
+        pytest.skip('Run pipeline/prepare_global_terrain.py to test the real global product')
+    lon,lat=-11.692614292831884,-50.49574316920751
+    with rasterio.open(path) as ds:
+        row,col=ds.index(lon,lat)
+        expected=float(ds.read(1,window=((row,row+1),(col,col+1)))[0,0])
+    point=client.get('/api/v1/coverage',params={'longitude':lon,'latitude':lat}).json()
+    assert point['selected_source']['id']==5
+    assert point['height_above_areoid_m']==expected
+    assert point['selected_source']['prepared_resolution_m']==200
+    # The published grid stops just short of the south pole; retain true fallback.
+    pole=client.get('/api/v1/coverage?longitude=0&latitude=-90').json()
+    assert pole['selected_source']['id']==0
+    global_entry=next(d for d in client.get('/api/v1/catalog').json()['datasets'] if d['id']=='global-200m')
+    assert global_entry['bounds']==[-180,-90,180,90]
+    provenance=client.get(global_entry['manifest']).json()
+    assert provenance['source_bytes']==11384463908
+    assert len(provenance['sha256'])==64
+    assert client.get('/api/v1/datasets/not-a-dataset/manifest').status_code==404
 
 
 def test_adjacent_tile_edges_and_cache(client):

@@ -1,0 +1,42 @@
+[
+  {
+    "longitude": -11.692614292831884,
+    "latitude": -50.49574316920751,
+    "row": 41639,
+    "column": 49881,
+    "official_remote_m": 1436,
+    "downloaded_local_m": 1436
+  },
+  {
+    "longitude": 0,
+    "latitude": 0,
+    "row": 26673,
+    "column": 53347,
+    "official_remote_m": -1517,
+    "downloaded_local_m": -1517
+  },
+  {
+    "longitude": -133.8,
+    "latitude": 18.65,
+    "row": 21146,
+    "column": 13692,
+    "official_remote_m": 19968,
+    "downloaded_local_m": 19968
+  },
+  {
+    "longitude": 138.3497866414,
+    "latitude": -4.9236258419,
+    "row": 28132,
+    "column": 94350,
+    "official_remote_m": -3564,
+    "downloaded_local_m": -3564
+  },
+  {
+    "longitude": 77.442214,
+    "latitude": 18.426873,
+    "row": 21212,
+    "column": 76299,
+    "official_remote_m": -2574,
+    "downloaded_local_m": -2574
+  }
+]

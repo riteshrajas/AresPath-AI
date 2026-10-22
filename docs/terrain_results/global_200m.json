@@ -1,0 +1,37 @@
+{
+  "id": "mars-global-hrsc-mola-200m-v2",
+  "planet": "Mars",
+  "created_utc": "2026-10-22T03:49:49.989180+00:00",
+  "source_url": "https://planetarymaps.usgs.gov/mosaic/Mars/HRSC_MOLA_Blend/Mars_HRSC_MOLA_BlendDEM_Global_200mp_v2.tif",
+  "reference": "https://astrogeology.usgs.gov/search/map/mars_mgs_mola_mex_hrsc_blended_dem_global_200m",
+  "authors": "Fergason, Hare and Laura (2018), USGS",
+  "source_etag": "\"94ec792407f5a3da2f8b87aba42613eb-1358\"",
+  "source_bytes": 11384463908,
+  "sha256": "e8bfe4c3b9dee9d5fdb8c4d49798869654e552e7b154712c9e12d6d117464419",
+  "shape": [
+    53347,
+    106694
+  ],
+  "bounds": [
+    -180.0,
+    -89.99922395220543,
+    179.99844790441085,
+    90.0
+  ],
+  "crs_wkt": "GEOGCS[\"GCS_Mars_2000_Sphere\",DATUM[\"Mars_2000_(Sphere)\",SPHEROID[\"Mars_2000_Sphere_IAU_IAG\",3396190,0]],PRIMEM[\"Reference_Meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]],AXIS[\"Latitude\",NORTH],AXIS[\"Longitude\",EAST]]",
+  "prepared_resolution_m": 200,
+  "vertical_datum": "MOLA areoid, as distributed by USGS",
+  "valid_cells": 5691764861,
+  "total_cells": 5691804818,
+  "minimum_m": -8528,
+  "maximum_m": 21226,
+  "method": "Unmodified published global elevation GeoTIFF; nearest native cells served by terrain API",
+  "limitations": [
+    "200 m grid spacing is not uniform 200 m stereo detail; this product blends HRSC with MOLA",
+    "No per-cell HRSC versus MOLA attribution mask is provided here",
+    "Tiny grid-edge/polar gaps retain explicit coarse-MOLA fallback",
+    "No bias correction against local CTX/HiRISE; source boundaries may show offsets",
+    "Elevation data, not a new photographic texture or raw-image reconstruction"
+  ],
+  "elapsed_seconds": 411.0130347000013
+}

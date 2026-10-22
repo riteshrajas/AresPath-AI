@@ -21,6 +21,7 @@ const buttons = [...document.querySelectorAll('nav button')];
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain;
 let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
+let globalTerrainAvailable = false;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 function makeControls(target = new THREE.Vector3()) {
   controls?.dispose(); controls = new OrbitControls(camera, renderer.domElement);
@@ -39,11 +40,16 @@ function clearTerrain() {
   if (terrain) { scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); terrain.mesh.material.dispose(); terrain = null; }
   mask.set(0, 0, 0, 0); loadedKey = '';
 }
+function globalLabels() {
+  status.textContent = 'Mars · global terrain explorer';
+  detail.textContent = globalTerrainAvailable
+    ? 'Explore anywhere: HRSC/MOLA 200 m grid · finer Jezero/Gale terrain where available'
+    : 'Double-click the surface to explore · detailed elevations available at Jezero and Gale';
+}
 function reset() {
   selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain();
   inspection.intensity = 0; setActive('mars'); sourceLink.hidden = true; errorText.textContent = '';
-  status.textContent = 'Mars · global MOLA relief';
-  detail.textContent = 'Double-click the surface to explore · detailed elevations available at Jezero and Gale';
+  globalLabels();
   fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
 }
 async function explore(longitude, latitude, label = 'Selected location', range = 30000, site = '') {
@@ -95,7 +101,8 @@ async function updateTerrain(now) {
   } finally { if (pending === controller) requestedKey = ''; }
 }
 async function initialize() {
-  mola = await api.json('/api/v1/globe/manifest');
+  const [manifest,catalog] = await Promise.all([api.json('/api/v1/globe/manifest'),api.json('/api/v1/catalog')]);
+  mola = manifest; globalTerrainAvailable = catalog.datasets.some(dataset => dataset.id === 'global-200m');
   const response = await fetch(api.base + '/api/v1/globe/radius.i16');
   if (!response.ok) throw Error(`MOLA unavailable: HTTP ${response.status}`);
   radiusGrid = new Int16Array(await response.arrayBuffer());
@@ -169,7 +176,7 @@ renderer.setAnimationLoop(now => {
   if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
     selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain();
     inspection.intensity = 0; setActive('mars'); sourceLink.hidden = true;
-    status.textContent = 'Mars · global MOLA relief'; detail.textContent = 'Double-click the surface to explore';
+    globalLabels();
     camera.up.set(0, 1, 0); makeControls();
   }
   if (local && !flight && radiusGrid) {
