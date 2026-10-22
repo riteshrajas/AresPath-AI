@@ -5,51 +5,17 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AresPath — Mars Globe</title>
 <style>
-*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#020306;color:#f8fafc;font-family:system-ui,sans-serif}#canvas-container{position:fixed;inset:0}canvas{display:block;touch-action:none}header{position:absolute;top:24px;left:28px;pointer-events:none}h1{margin:0;font-size:19px;font-weight:750;letter-spacing:2px;color:#ff8c73}header p{margin:7px 0 0;font-size:12px;letter-spacing:1px;color:#a3abb9}footer{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#b0b6c2;font-size:12px;text-align:center;white-space:nowrap;pointer-events:none}#error{position:absolute;bottom:55px;left:24px;right:24px;color:#ffc5b3;text-align:center}@media(max-width:600px){header{top:20px;left:20px}footer{width:90%;white-space:normal}}
+*{box-sizing:border-box}body{margin:0;overflow:hidden;background:#020306;color:#f8fafc;font-family:system-ui,sans-serif}#canvas-container{position:fixed;inset:0}canvas{display:block;touch-action:none}header{position:absolute;top:24px;left:28px;pointer-events:auto}h1{margin:0;font-size:19px;font-weight:750;letter-spacing:2px;color:#ff8c73}header p{margin:7px 0 0;font-size:12px;letter-spacing:1px;color:#a3abb9}footer{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);color:#b0b6c2;font-size:12px;text-align:center;white-space:nowrap;pointer-events:none}#error{position:absolute;bottom:55px;left:24px;right:24px;color:#ffc5b3;text-align:center}@media(max-width:600px){header{top:20px;left:20px}footer{width:90%;white-space:normal}}
+nav{display:flex;gap:8px;margin-top:14px}button{border:1px solid #56616d;background:#111820cc;color:#d9e0e8;padding:7px 14px;border-radius:20px;cursor:pointer}button[aria-pressed="true"]{border-color:#dd8f6b;color:#ffb796}button:disabled{opacity:.5;cursor:wait}#source{display:inline-block;margin-top:10px;color:#b1c7dc;font-size:12px}#source[hidden]{display:none}#status{max-width:min(520px,85vw);line-height:1.5;text-transform:none;letter-spacing:0}
 </style>
 <script type="importmap">{"imports":{"three":"../node_modules/three/build/three.module.js"}}</script>
 </head>
 <body>
 <div id="canvas-container"></div>
-<header><h1>ARESPATH</h1><p>MARS · GLOBAL VIEW</p></header>
-<footer>Drag to rotate · Scroll or pinch to zoom</footer>
+<header><h1>ARESPATH</h1><p id="status" role="status">Loading MOLA and HiRISE terrain…</p><nav aria-label="Terrain locations"><button data-site="mars" disabled aria-pressed="true">Mars</button><button data-site="jezero" disabled aria-pressed="false">Jezero</button><button data-site="gale" disabled aria-pressed="false">Gale</button></nav><a id="source" hidden target="_blank" rel="noopener">HiRISE source · elevation colors</a></header>
+<footer>Drag to rotate · Scroll or pinch to zoom · <span id="range">Orbital view</span></footer>
 <p id="error" role="alert"></p>
-<script type="module">
-import * as THREE from 'three';
-import { OrbitControls } from '../node_modules/three/examples/jsm/controls/OrbitControls.js';
-const scene=new THREE.Scene();
-scene.background=new THREE.Color(0x020306);
-const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,1,30000);
-camera.position.set(0,180,1020);
-const renderer=new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setSize(innerWidth,innerHeight);
-document.querySelector('#canvas-container').appendChild(renderer.domElement);
-const radius=280;
-const controls=new OrbitControls(camera,renderer.domElement);
-controls.enableDamping=true;
-controls.enablePan=false;
-controls.minDistance=radius*1.15;
-controls.maxDistance=6000;
-scene.add(new THREE.AmbientLight(0xffeedd,0.8));
-const sun=new THREE.DirectionalLight(0xffd5b8,3.0);
-sun.position.set(1200,800,1000);scene.add(sun);
-const fill=new THREE.DirectionalLight(0x223344,0.8);
-fill.position.set(-1000,-400,-800);scene.add(fill);
-const stars=new Float32Array(3500*3);
-for(let i=0;i<stars.length;i++)stars[i]=(Math.random()-0.5)*15000;
-const starGeometry=new THREE.BufferGeometry();
-starGeometry.setAttribute('position',new THREE.BufferAttribute(stars,3));
-scene.add(new THREE.Points(starGeometry,new THREE.PointsMaterial({color:0xffffff,size:2.2,transparent:true,opacity:0.85})));
-const texture=new THREE.TextureLoader().load('assets/mars_globe_8k.jpg',undefined,undefined,()=>{
-document.querySelector('#error').textContent='The Mars image could not be loaded. Check the local assets folder.';
-});
-texture.colorSpace=THREE.SRGBColorSpace;
-texture.anisotropy=renderer.capabilities.getMaxAnisotropy();
-// Imagery-covered sphere; no terrain displacement or surface reconstruction.
-scene.add(new THREE.Mesh(new THREE.SphereGeometry(radius,96,64),new THREE.MeshStandardMaterial({map:texture,roughness:0.95,metalness:0})));
-renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera)});
-addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
-</script>
+<script type="module" src="globe.js"></script>
 </body>
 </html>
+

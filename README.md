@@ -12,7 +12,7 @@
 
 ## 🚀 Mission Overview
 
-**Current globe UI:** `web/index.html` displays the Mars image on a sphere with orbit and zoom controls. Procedural surface models, site pins, surface navigation, hazard controls, and simulated telemetry have been removed from this page. The separate verified terrain viewer and scientific output files remain available.
+**Current globe UI:** `web/index.html` renders coarse measured MOLA planetary radii and places the verified Jezero and Gale HiRISE patches at their source coordinates. Three small navigation buttons move between the globe and the patches in one scene; procedural site models, hazard controls and simulated telemetry remain removed. See [globe stitching details and reproduction](docs/GLOBE_STITCHING.md). The separate terrain viewer and scientific output files remain available.
 
 **Verified terrain deliverable (October 21, 2026):** Small Jezero and Gale patches are generated from published HiRISE DTMs using [`pipeline/verified_terrain.py`](pipeline/verified_terrain.py). See the [reproducible handoff, measured results, and limitations](docs/TERRAIN_HANDOFF.md). The viewer is `web/verified-terrain.html`. This processes existing stereo-derived elevations; it does not perform new raw-image reconstruction. Other terrain generators and the placeholder DepthPro server include procedural/brightness-derived prototypes and must not be presented as verified terrain or measured GPU inference.
 
