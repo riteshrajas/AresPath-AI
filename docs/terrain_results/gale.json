@@ -1,0 +1,91 @@
+{
+  "name": "Gale crater \u2014 layered outcrop patch",
+  "source_page": "https://www.uahirise.org/dtm/PSP_008437_1750",
+  "product": "DTEEC_008437_1750_008938_1750_U01",
+  "stereo_observations": [
+    "PSP_008437_1750",
+    "PSP_008938_1750"
+  ],
+  "url": "https://www.uahirise.org/PDS/DTM/PSP/ORB_008400_008499/PSP_008437_1750_PSP_008938_1750/DTEEC_008437_1750_008938_1750_U01.IMG",
+  "site": "gale",
+  "method": "Crop and mesh published stereo-derived HiRISE DTM; no new photogrammetry or ML",
+  "created_utc": "2026-10-22T02:09:14.003939+00:00",
+  "source_sha256": "53ec2d41117809a9bfa20426114f1caf1d3cb8eff68e60414e0a3c6a92ebeb1c",
+  "source_dimensions_pixels": [
+    6770,
+    12512
+  ],
+  "source_window_pixels": {
+    "column": 2616,
+    "row": 5487,
+    "width": 1537,
+    "height": 1537
+  },
+  "native_pixel_spacing_m": [
+    1.0117414489699,
+    1.0117414489699
+  ],
+  "crs_wkt": "PROJCS[\"EQUIRECTANGULAR MARS\",GEOGCS[\"GCS_MARS\",DATUM[\"D_MARS\",SPHEROID[\"MARS_localRadius\",3396190,0]],PRIMEM[\"Reference_Meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Equirectangular\"],PARAMETER[\"standard_parallel_1\",0],PARAMETER[\"central_meridian\",138.35],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+  "crop_affine": [
+    1.0117414489699,
+    0.0,
+    -790.1700716453906,
+    0.0,
+    -1.0117414489699,
+    -291068.90919558937
+  ],
+  "mesh_grid": [
+    257,
+    257
+  ],
+  "mesh_step_source_pixels": 6,
+  "mesh_spacing_m": [
+    6.070448693819399,
+    6.070448693819399
+  ],
+  "mesh_extent_between_nodes_m": [
+    1554.0348656177662,
+    1554.0348656177662
+  ],
+  "origin_projected_easting_northing_m": [
+    -789.6642009209057,
+    -291069.4150663139
+  ],
+  "origin_elevation_m": -3829.65087890625,
+  "mesh_axes": "east, up, south; meters; vertical exaggeration 1",
+  "elevation_datum": "Meters above Mars 2000 equipotential surface; source PDS IMAGE NOTE",
+  "native_valid_fraction": 1.0,
+  "mesh_valid_fraction": 1.0,
+  "elevation_min_m": -3829.65087890625,
+  "elevation_max_m": -3152.272216796875,
+  "slope_max_degrees_at_mesh_spacing": 68.1986024515729,
+  "vertices": 66049,
+  "triangles": 131072,
+  "limitations": [
+    "Small central patch, not entire crater",
+    "Published DTM accuracy is not independently surveyed here",
+    "Mesh is decimated; fine hazards can be lost",
+    "Elevation colors, not photographic texture",
+    "Slope is geometric only; no rover safety or soil-slip certification"
+  ],
+  "runtime_seconds": 139.212,
+  "environment": {
+    "python": "3.13.12 | packaged by conda-forge | (main, Feb  5 2026, 05:41:12) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "numpy": "2.4.3",
+    "rasterio": "1.5.2"
+  },
+  "command": [
+    "pipeline/verified_terrain.py"
+  ],
+  "verification": {
+    "geotiff_exact_source_values": true,
+    "geotiff_mask_preserved": true
+  },
+  "outputs_sha256": {
+    "elevation.tif": "49dc007db0a7881ad6ddd301fcf151d2a8ba35dc8ff3bb580fecbc3542724e83",
+    "elevation_preview.png": "c55bfce0ee9672bac45ec4862cf6ecfc0bb968ac2bedf8c542422f847bb907ea",
+    "grid.json": "957f244af0831f937702ab6989ebc5f1e3c230a6dd8292741820ae1927645f7c",
+    "terrain.obj": "923d30c3b90ac12744af0e2a7a5df8feff5c7ad140d5f3651f76cd32ed65de6a"
+  }
+}

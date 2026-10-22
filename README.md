@@ -12,6 +12,8 @@
 
 ## 🚀 Mission Overview
 
+**Verified terrain deliverable (October 21, 2026):** Small Jezero and Gale patches are generated from published HiRISE DTMs using [`pipeline/verified_terrain.py`](pipeline/verified_terrain.py). See the [reproducible handoff, measured results, and limitations](docs/TERRAIN_HANDOFF.md). The viewer is `web/verified-terrain.html`. This processes existing stereo-derived elevations; it does not perform new raw-image reconstruction. Other terrain generators and the placeholder DepthPro server include procedural/brightness-derived prototypes and must not be presented as verified terrain or measured GPU inference.
+
 Human explorers on Mars cannot rely on static orbital pictures or slow ground-control pathing from Earth (which suffers from an 8 to 48-minute round-trip speed-of-light communication delay). When astronauts step outside the habitat for a **Marswalk (Extravehicular Activity — EVA)**, tactical decisions must happen in real time on the surface.
 
 **AresPath AI** is an intelligent tactical navigation and environmental situational awareness engine designed for future human Martian explorers. It ingests multi-mission, multi-agency datasets across NASA, ESA, ISRO, CNSA, Roscosmos, and the UAE Space Agency, synthesizing them into:

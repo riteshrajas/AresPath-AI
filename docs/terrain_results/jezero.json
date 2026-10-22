@@ -1,0 +1,91 @@
+{
+  "name": "Jezero crater \u2014 candidate landing site patch",
+  "source_page": "https://www.uahirise.org/dtm/ESP_045994_1985",
+  "product": "DTEEC_045994_1985_046060_1985_U01",
+  "stereo_observations": [
+    "ESP_045994_1985",
+    "ESP_046060_1985"
+  ],
+  "url": "https://www.uahirise.org/PDS/DTM/ESP/ORB_045900_045999/ESP_045994_1985_ESP_046060_1985/DTEEC_045994_1985_046060_1985_U01.IMG",
+  "site": "jezero",
+  "method": "Crop and mesh published stereo-derived HiRISE DTM; no new photogrammetry or ML",
+  "created_utc": "2026-10-22T02:06:54.552124+00:00",
+  "source_sha256": "b40739b4d32516ef9b3cd849f519a6a20df9720b5369a9c141047ced27c57654",
+  "source_dimensions_pixels": [
+    6673,
+    14266
+  ],
+  "source_window_pixels": {
+    "column": 2568,
+    "row": 6364,
+    "width": 1537,
+    "height": 1537
+  },
+  "native_pixel_spacing_m": [
+    1.0096633268711,
+    1.0096633268711
+  ],
+  "crs_wkt": "PROJCS[\"EQUIRECTANGULAR MARS\",GEOGCS[\"GCS_MARS\",DATUM[\"D_MARS\",SPHEROID[\"MARS_localRadius\",3394839.8133163,0]],PRIMEM[\"Reference_Meridian\",0],UNIT[\"degree\",0.0174532925199433,AUTHORITY[\"EPSG\",\"9122\"]]],PROJECTION[\"Equirectangular\"],PARAMETER[\"standard_parallel_1\",15],PARAMETER[\"central_meridian\",77.44],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],AXIS[\"Easting\",EAST],AXIS[\"Northing\",NORTH]]",
+  "crop_affine": [
+    1.0096633268711,
+    0.0,
+    -649.2135191782181,
+    0.0,
+    -1.0096633268711,
+    1092588.995233677
+  ],
+  "mesh_grid": [
+    257,
+    257
+  ],
+  "mesh_step_source_pixels": 6,
+  "mesh_spacing_m": [
+    6.0579799612266,
+    6.0579799612266
+  ],
+  "mesh_extent_between_nodes_m": [
+    1550.8428700740096,
+    1550.8428700740096
+  ],
+  "origin_projected_easting_northing_m": [
+    -648.7086875147826,
+    1092588.4904020138
+  ],
+  "origin_elevation_m": -2592.732177734375,
+  "mesh_axes": "east, up, south; meters; vertical exaggeration 1",
+  "elevation_datum": "Meters above Mars 2000 equipotential surface; source PDS IMAGE NOTE",
+  "native_valid_fraction": 1.0,
+  "mesh_valid_fraction": 1.0,
+  "elevation_min_m": -2592.732177734375,
+  "elevation_max_m": -2544.197021484375,
+  "slope_max_degrees_at_mesh_spacing": 20.08740566258456,
+  "vertices": 66049,
+  "triangles": 131072,
+  "limitations": [
+    "Small central patch, not entire crater",
+    "Published DTM accuracy is not independently surveyed here",
+    "Mesh is decimated; fine hazards can be lost",
+    "Elevation colors, not photographic texture",
+    "Slope is geometric only; no rover safety or soil-slip certification"
+  ],
+  "runtime_seconds": 33.928,
+  "environment": {
+    "python": "3.13.12 | packaged by conda-forge | (main, Feb  5 2026, 05:41:12) [MSC v.1944 64 bit (AMD64)]",
+    "platform": "Windows-11-10.0.26300-SP0",
+    "numpy": "2.4.3",
+    "rasterio": "1.5.2"
+  },
+  "command": [
+    "pipeline/verified_terrain.py"
+  ],
+  "verification": {
+    "geotiff_exact_source_values": true,
+    "geotiff_mask_preserved": true
+  },
+  "outputs_sha256": {
+    "elevation.tif": "f7a17f22e0598710413f43130eeec1fbc415b6bcd1a07754b062162d6e2a6c4f",
+    "elevation_preview.png": "d443cb1c0cee4e3f8d43e37a2c7f4358a28cd9b484de1a887bbf279c21e70290",
+    "grid.json": "68d08488d1a45607fa9b30a20dfd08e8fdd092174c1cb3d68e8ec5c88466a191",
+    "terrain.obj": "0a459b5b0d6bc89a8f8304afdd0713bdbf137ee6c4bce1f9abe53a478f96fb2a"
+  }
+}

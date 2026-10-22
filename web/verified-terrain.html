@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AresPath | Measured Mars terrain</title>
+<style>
+body{margin:0;background:#10151e;color:#f1f3f7;font:15px system-ui}canvas{display:block}aside{position:absolute;top:16px;left:16px;width:min(340px,calc(100vw - 64px));padding:16px;background:#10151eee;border:1px solid #687489;border-radius:12px}h1{font-size:20px;margin:0 0 8px}p{line-height:1.45}select,button{padding:8px;background:#263244;color:white;border:1px solid #687489;border-radius:5px}a{color:#a9d9ff}small{color:#c0cad8}#error{color:#ffba9d}label{display:block;margin:10px 0}#stats{font-variant-numeric:tabular-nums}
+</style>
+<aside>
+<h1>AresPath · Mars terrain</h1>
+<p>Published HiRISE stereo-derived elevations. Small patches, real meter scales.</p>
+<label>Location <select id="site"><option value="jezero">Jezero</option><option value="gale">Gale</option></select></label>
+<label>Vertical exaggeration <select id="exaggeration"><option value="1">1× — true scale</option><option value="3">3× — display only</option><option value="5">5× — display only</option></select></label>
+<label><input id="wireframe" type="checkbox"> Show mesh edges</label>
+<p id="stats">Loading elevations…</p>
+<p><a id="source" target="_blank" rel="noopener">HiRISE source</a> · <a id="obj">OBJ mesh</a> · <a id="metadata">Run manifest</a></p>
+<small>Drag to orbit · wheel to zoom · right-drag to pan. Colors show elevation, not photographic texture. Missing data produces holes. This is not a validated navigation or safety map.</small>
+<p id="error" role="alert"></p>
+</aside>
+<script type="importmap">{"imports":{"three":"../node_modules/three/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from '../node_modules/three/examples/jsm/controls/OrbitControls.js';
+const DATA_ROOT=document.documentElement.dataset.terrainRoot || '../data/verified_terrain';
+const scene=new THREE.Scene();scene.background=new THREE.Color('#10151e');
+const camera=new THREE.PerspectiveCamera(45,innerWidth/innerHeight,1,50000);
+const renderer=new THREE.WebGLRenderer({antialias:true});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,2));document.body.appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;
+scene.add(new THREE.HemisphereLight(0xffffff,0x503220,2.5));
+const light=new THREE.DirectionalLight(0xffffff,2);light.position.set(-1000,3000,-1000);scene.add(light);
+let mesh=null, requestId=0;
+async function load(){
+ const id=++requestId, site=document.querySelector('#site').value;
+ document.querySelector('#error').textContent='';document.querySelector('#stats').textContent='Loading…';
+ try{
+  const response=await fetch(`${DATA_ROOT}/${site}/grid.json`);
+  if(!response.ok)throw Error(`Elevation file HTTP ${response.status}; run pipeline/verified_terrain.py first.`);
+  const g=await response.json();if(id!==requestId)return;
+  const positions=[],colors=[],indices=[];const valid=g.elevations_m.filter(v=>v!==null),lo=Math.min(...valid),hi=Math.max(...valid);
+  for(let y=0;y<g.rows;y++)for(let x=0;x<g.cols;x++){
+   const value=g.elevations_m[y*g.cols+x],t=value===null?0:(value-lo)/Math.max(hi-lo,1e-6);
+   positions.push((x-(g.cols-1)/2)*g.spacing_x_m,value===null?0:value-lo,(y-(g.rows-1)/2)*g.spacing_y_m);
+   const color=new THREE.Color().setRGB(0.28+0.55*t,0.14+0.47*t,0.08+0.36*t);colors.push(color.r,color.g,color.b);
+  }
+  for(let y=0;y<g.rows-1;y++)for(let x=0;x<g.cols-1;x++){
+   const a=y*g.cols+x,b=a+g.cols,c=a+1,d=b+1;
+   for(const tri of [[a,b,c],[c,b,d]])if(tri.every(i=>g.elevations_m[i]!==null))indices.push(...tri);
+  }
+  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.setIndex(indices);geometry.computeVertexNormals();
+  if(mesh){scene.remove(mesh);mesh.geometry.dispose();mesh.material.dispose();}
+  mesh=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,roughness:0.95}));scene.add(mesh);appearance();
+  const span=Math.max((g.cols-1)*g.spacing_x_m,(g.rows-1)*g.spacing_y_m);camera.position.set(span*.8,span*.8,span*.9);controls.target.set(0,(hi-lo)/2,0);controls.update();
+  document.querySelector('#stats').textContent=`${g.name}. ${(span/1000).toFixed(2)} km patch · ${g.spacing_x_m.toFixed(2)} m mesh spacing · ${lo.toFixed(1)} to ${hi.toFixed(1)} m elevation (Mars datum). ${valid.length.toLocaleString()} vertices, ${(indices.length/3).toLocaleString()} triangles.`;
+  document.querySelector('#source').href=g.source_page;document.querySelector('#obj').href=`${DATA_ROOT}/${site}/terrain.obj`;document.querySelector('#metadata').href=`${DATA_ROOT}/${site}/manifest.json`;
+ }catch(error){document.querySelector('#error').textContent=error.message;document.querySelector('#stats').textContent='Unable to load measured terrain.';}
+}
+function appearance(){if(mesh){mesh.scale.y=Number(document.querySelector('#exaggeration').value);mesh.material.wireframe=document.querySelector('#wireframe').checked;}}
+document.querySelector('#site').addEventListener('change',load);document.querySelector('#exaggeration').addEventListener('change',appearance);document.querySelector('#wireframe').addEventListener('change',appearance);
+addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+renderer.setAnimationLoop(()=>{controls.update();renderer.render(scene,camera);});
+load();
+</script>
+</html>

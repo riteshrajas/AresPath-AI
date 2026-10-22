@@ -1,0 +1,16 @@
+[
+  {
+    "site": "jezero",
+    "json_max_abs_error_m": 5.000000010113581e-05,
+    "obj_vertices": 66049,
+    "obj_faces": 131072,
+    "passed": true
+  },
+  {
+    "site": "gale",
+    "json_max_abs_error_m": 5.000000010113581e-05,
+    "obj_vertices": 66049,
+    "obj_faces": 131072,
+    "passed": true
+  }
+]
