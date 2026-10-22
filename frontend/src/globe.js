@@ -15,13 +15,10 @@ document.querySelector('#canvas-container').appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffeee1, .85));
 const sun = new THREE.DirectionalLight(0xffe0c6, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
 const inspection = new THREE.DirectionalLight(0xfff1df, 0); scene.add(inspection); scene.add(inspection.target);
-const status = document.querySelector('#status'), detail = document.querySelector('#detail');
-const errorText = document.querySelector('#error'), sourceLink = document.querySelector('#source');
-const buttons = [...document.querySelectorAll('nav button')];
+const errorText = document.querySelector('#error');
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain;
 let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
-let globalTerrainAvailable = false;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 function makeControls(target = new THREE.Vector3()) {
   controls?.dispose(); controls = new OrbitControls(camera, renderer.domElement);
@@ -35,39 +32,25 @@ function fly(position, target, up) {
   flight = { start: performance.now(), from: camera.position.clone(), target: controls.target.clone(), up: camera.up.clone(),
     to: position, endTarget: target, endUp: up }; controls.enabled = false;
 }
-function setActive(site) { buttons.forEach(button => button.setAttribute('aria-pressed', String(button.dataset.site === site))); }
 function clearTerrain() {
   if (terrain) { scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); terrain.mesh.material.dispose(); terrain = null; }
   mask.set(0, 0, 0, 0); loadedKey = '';
 }
-function globalLabels() {
-  status.textContent = 'Mars · global terrain explorer';
-  detail.textContent = globalTerrainAvailable
-    ? 'Explore anywhere: HRSC/MOLA 200 m grid · finer Jezero/Gale terrain where available'
-    : 'Double-click the surface to explore · detailed elevations available at Jezero and Gale';
-}
 function reset() {
   selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain();
-  inspection.intensity = 0; setActive('mars'); sourceLink.hidden = true; errorText.textContent = '';
-  globalLabels();
+  inspection.intensity = 0; errorText.textContent = '';
   fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
 }
-async function explore(longitude, latitude, label = 'Selected location', range = 30000, site = '') {
+async function explore(longitude, latitude, label = 'Selected location', range = 30000) {
   const token = ++selection; pending?.abort(); requestedKey = ''; retryAt = 0;
-  status.textContent = `Locating ${label}…`; errorText.textContent = '';
+  errorText.textContent = '';
   try {
     const coverage = await api.coverage(longitude, latitude);
     if (selection !== token) return;
     const center = vector(planetPoint(longitude, latitude, coverage.planetary_radius_m));
     const normal = center.clone().normalize(), lon = longitude * Math.PI / 180, lat = latitude * Math.PI / 180;
     const north = new THREE.Vector3(-Math.sin(lat) * Math.cos(lon), Math.cos(lat), Math.sin(lat) * Math.sin(lon));
-    local = { longitude, latitude, label, coverage }; loadedKey = ''; setActive(site);
-    document.querySelector('#longitude').value = longitude.toFixed(5); document.querySelector('#latitude').value = latitude.toFixed(5);
-    status.textContent = `${label} · ${Math.abs(latitude).toFixed(3)}°${latitude < 0 ? 'S' : 'N'}, ${Math.abs(longitude).toFixed(3)}°${longitude < 0 ? 'W' : 'E'}`;
-    detail.textContent = 'Loading terrain for this view…'; sourceLink.hidden = false;
-    sourceLink.href = `${api.base}/api/v1/coverage?longitude=${longitude}&latitude=${latitude}`;
-    const source = coverage.selected_source;
-    sourceLink.textContent = `Point source: ${source.kind} · ${source.prepared_resolution_m >= 1000 ? (source.prepared_resolution_m / 1000).toFixed(1) + ' km' : source.prepared_resolution_m + ' m'} native/prepared samples`;
+    local = { longitude, latitude, label, coverage }; loadedKey = '';
     inspection.intensity = 1;
     const distance = range * SCALE;
     fly(center.clone().addScaledVector(normal, distance).addScaledVector(north, -distance * .45), center, normal);
@@ -80,7 +63,6 @@ async function updateTerrain(now) {
   const plan = planTerrainWindow(local.longitude, local.latitude, range, camera.aspect, camera.fov);
   if (plan.key === loadedKey || plan.key === requestedKey) return;
   pending?.abort(); const controller = new AbortController(); pending = controller; requestedKey = plan.key;
-  detail.textContent = 'Loading terrain for this zoom…';
   try {
     const data = await fetchTerrainWindow(api, plan, controller.signal);
     if (controller.signal.aborted || !local) return;
@@ -88,12 +70,7 @@ async function updateTerrain(now) {
     // Leave the coarse globe beneath the visual collar. Masking through its
     // outside edge exposes tiny cracks where curved edges cross coarse faces.
     terrain = next; scene.add(next.mesh); loadedKey = plan.key; mask.set(...data.bounds);
-    const source = local.coverage.selected_source;
-    const kinds = [...new Set(data.sourceMetadata.map(item => item.kind))].join(' + ');
-    const spacing = 21344000 / 2 ** plan.z / 64;
-    detail.textContent = `${kinds} terrain · ~${Math.round(spacing)} m grid at equator · 1× relief`;
-    sourceLink.textContent = `Point source: ${source.kind} · ${source.prepared_resolution_m >= 1000 ? (source.prepared_resolution_m / 1000).toFixed(1) + ' km' : source.prepared_resolution_m + ' m'} native/prepared samples`;
-    detail.dataset.level = String(plan.z); detail.dataset.tiles = String(plan.tiles.length); errorText.textContent = '';
+    errorText.textContent = '';
   } catch (error) {
     if (error.name !== 'AbortError' && !controller.signal.aborted) {
       errorText.textContent = `Terrain unavailable: ${error.message}. Existing terrain remains visible.`; retryAt = performance.now() + 10000;
@@ -101,8 +78,7 @@ async function updateTerrain(now) {
   } finally { if (pending === controller) requestedKey = ''; }
 }
 async function initialize() {
-  const [manifest,catalog] = await Promise.all([api.json('/api/v1/globe/manifest'),api.json('/api/v1/catalog')]);
-  mola = manifest; globalTerrainAvailable = catalog.datasets.some(dataset => dataset.id === 'global-200m');
+  mola = await api.json('/api/v1/globe/manifest');
   const response = await fetch(api.base + '/api/v1/globe/radius.i16');
   if (!response.ok) throw Error(`MOLA unavailable: HTTP ${response.status}`);
   radiusGrid = new Int16Array(await response.arrayBuffer());
@@ -142,21 +118,10 @@ async function initialize() {
       if(terrainBounds.z>terrainBounds.x && lon>terrainBounds.x && lon<terrainBounds.z && lat>terrainBounds.y && lat<terrainBounds.w) discard;`);
   };
   baseMesh = new THREE.Mesh(geometry, material); scene.add(baseMesh);
-  for (const button of buttons) {
-    button.disabled = false; button.addEventListener('click', () => {
-      const site = button.dataset.site;
-      if (site === 'mars') reset();
-      else { const patch = mola.patches.find(item => item.site === site); explore(...patch.center, site === 'gale' ? 'Gale crater' : 'Jezero crater', site === 'gale' ? 23000 : 2200, site); }
-    });
-  }
-  document.querySelector('#location-form button').disabled = false;
   const requested = new URLSearchParams(location.search).get('site'), patch = mola.patches.find(item => item.site === requested);
-  if (patch) explore(...patch.center, requested === 'gale' ? 'Gale crater' : 'Jezero crater', requested === 'gale' ? 23000 : 2200, requested);
+  if (patch) explore(...patch.center, requested === 'gale' ? 'Gale crater' : 'Jezero crater', requested === 'gale' ? 23000 : 2200);
   else reset();
 }
-document.querySelector('#location-form').addEventListener('submit', event => {
-  event.preventDefault(); explore(Number(document.querySelector('#longitude').value), Number(document.querySelector('#latitude').value));
-});
 renderer.domElement.addEventListener('dblclick', event => {
   if (!baseMesh || flight) return;
   const rect = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
@@ -175,8 +140,7 @@ renderer.setAnimationLoop(now => {
   } else controls.update();
   if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
     selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain();
-    inspection.intensity = 0; setActive('mars'); sourceLink.hidden = true;
-    globalLabels();
+    inspection.intensity = 0;
     camera.up.set(0, 1, 0); makeControls();
   }
   if (local && !flight && radiusGrid) {
@@ -198,4 +162,4 @@ renderer.setAnimationLoop(now => {
   updateTerrain(now); renderer.render(scene, camera);
 });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
-initialize().catch(error => { errorText.textContent = error.message; status.textContent = 'Terrain loading failed'; console.error(error); });
+initialize().catch(error => { errorText.textContent = error.message; console.error(error); });
