@@ -28,7 +28,10 @@ const mask = new THREE.Vector4(0, 0, 0, 0);
 function makeControls(target = new THREE.Vector3()) {
   controls?.dispose(); controls = new OrbitControls(camera, renderer.domElement);
   controls.target.copy(target); controls.enableDamping = true; controls.enablePan = false;
-  controls.minDistance = local ? 100 * SCALE : 290;
+  // Let explorers approach the measured surface closely enough to inspect
+  // meter-scale terrain, while the radial clearance check below still prevents
+  // the camera from entering the DEM.
+  controls.minDistance = local ? 18 * SCALE : 290;
   controls.maxDistance = 6000; controls.minPolarAngle = .03;
   controls.maxPolarAngle = local ? Math.PI / 2 - .12 : Math.PI - .03; controls.update();
 }
@@ -56,7 +59,9 @@ async function explore(longitude, latitude, label = 'Selected location', range =
     const normal = center.clone().normalize(), lon = longitude * Math.PI / 180, lat = latitude * Math.PI / 180;
     const north = new THREE.Vector3(-Math.sin(lat) * Math.cos(lon), Math.cos(lat), Math.sin(lat) * Math.sin(lon));
     local = { longitude, latitude, label, coverage }; loadedKey = '';
-    inspection.intensity = 1;
+    // A small camera-aligned fill keeps the near side readable without washing
+    // out the shadows that reveal actual valley depth.
+    inspection.intensity = .42;
     if (preserveView) {
       camera.up.copy(normal); makeControls(center);
       return;
@@ -184,10 +189,13 @@ renderer.setAnimationLoop(now => {
         const y = Math.round((north - latitude) / (north - south) * (data.rows - 1)); ground = data.radii[y * data.cols + x];
       }
     }
-    const safe = (ground + 75) * SCALE; if (radial < safe) camera.position.multiplyScalar(safe / radial);
+    const safe = (ground + 18) * SCALE; if (radial < safe) camera.position.multiplyScalar(safe / radial);
   }
   inspection.position.copy(camera.position); inspection.target.position.copy(controls.target);
-  document.querySelector('#range').textContent = `${(camera.position.distanceTo(controls.target) / SCALE / 1000).toFixed(1)} km view range`;
+  const rangeMeters = camera.position.distanceTo(controls.target) / SCALE;
+  document.querySelector('#range').textContent = rangeMeters < 1000
+    ? `${Math.round(rangeMeters)} m view range`
+    : `${(rangeMeters / 1000).toFixed(1)} km view range`;
   focusFromZoom(now); updateTerrain(now); renderer.render(scene, camera);
 });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });

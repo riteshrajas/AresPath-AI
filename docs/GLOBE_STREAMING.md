@@ -61,6 +61,9 @@ no browser rendering errors. Six frontend tests and the production build passed.
 - The minimal globe header keeps the product label only. Source provenance and
   native/prepared resolution remain available through the API and tile explorer;
   resampling dense MOLA grids cannot create fine measured relief.
+- In a selected local window the camera can approach to an 18 m radial clearance
+  above the sampled surface. That clearance and the radial correction are viewing
+  aids only; they do not certify rover clearance or navigation safety.
 
 ## Verification, October 21, 2026
 
