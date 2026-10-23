@@ -10,9 +10,10 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
   for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++)
     tiles.push({ z, x: (x + n) % n, y, column: x - left, row: y - top });
   return { key: `${z}/${center.x}/${center.y}`, z, tiles, columns: 3, rows: bottom - top + 1,
-    // A smaller preview grid is enough while the camera is far away. The
-    // request stays tile-compatible, but cuts JSON and assembly work sharply.
-    size: z < 12 ? 33 : 65,
+    // A smaller preview grid is enough only while the camera is genuinely far
+    // away. Keep mid-range views at full tile density so terrain does not look
+    // soft during the transition into a close inspection.
+    size: z < 10 ? 33 : 65,
     bounds: [-180 + 360 * left / n, 90 - 180 * (bottom + 1) / n,
       -180 + 360 * (right + 1) / n, 90 - 180 * top / n] };
 }

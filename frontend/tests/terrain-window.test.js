@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { planTerrainWindow, assembleTerrainWindow, fetchTerrainWindow } from '../src/terrain-window.js';
 
 test('zoom selects finer level while dateline and pole tile requests stay valid', () => {
-  assert.ok(planTerrainWindow(138.35, -4.92, 1000).z > planTerrainWindow(138.35, -4.92, 30000).z);
+  const close = planTerrainWindow(138.35, -4.92, 1000), far = planTerrainWindow(138.35, -4.92, 300000);
+  assert.ok(close.z > far.z); assert.equal(close.size, 65); assert.equal(far.size, 33);
   for (const [lon, lat] of [[180,0],[-180,0],[0,90],[0,-90]]) {
     const plan = planTerrainWindow(lon,lat,10000);
     assert.ok(plan.tiles.length <= 9);

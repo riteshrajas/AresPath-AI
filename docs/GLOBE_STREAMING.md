@@ -33,8 +33,8 @@ no browser rendering errors. Six frontend tests and the production build passed.
 
 - `frontend/src/terrain-window.js` selects a level from camera range, aspect and
   field of view, and requests a 3 by 3 visible ring (clipped to two rows at a
-  pole). Levels are bounded to 2–18 and tile nodes to 65 per axis. Farther views
-  request 33-node previews; close views request 65-node tiles. Six visible tile
+  pole). Levels are bounded to 2–18 and tile nodes to 65 per axis. Only genuinely
+  far views request 33-node previews; mid-range and close views request 65-node tiles. Six visible tile
   requests run concurrently, with the previous window retained until the new ring
   is complete. Dateline columns wrap; geometry uses unwrapped angles.
 - Adjacent tiles share one edge row/column when assembled into a 193 by 193
