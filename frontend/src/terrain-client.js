@@ -37,7 +37,9 @@ export class TerrainClient {
     const value = await this.json(path, signal);
     if (signal?.aborted) throw new DOMException('Request canceled', 'AbortError');
     this.cache.set(path, value);
-    if (this.cache.size > 32) this.cache.delete(this.cache.keys().next().value);
+    // Keep a few neighboring rings warm so small camera movements do not
+    // re-download the same parent/child tiles.
+    if (this.cache.size > 96) this.cache.delete(this.cache.keys().next().value);
     return value;
   }
 }

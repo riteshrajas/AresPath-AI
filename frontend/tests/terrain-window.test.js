@@ -24,13 +24,13 @@ test('assembly shares inclusive edges and rejects a catalog change mid-request',
   assert.throws(() => assembleTerrainWindow(plan,tiles), /catalog revisions/);
 });
 
-test('window limits concurrency and abort never publishes a partial result', async () => {
+test('window limits visible-ring concurrency and abort never publishes a partial result', async () => {
   let active = 0, maximum = 0;
   const api = { tile: async () => { active++; maximum = Math.max(maximum,active);
     await new Promise(resolve => setTimeout(resolve,1)); active--; return fixture(); } };
   const plan = planTerrainWindow(0,0,10000), controller = new AbortController();
   const result = await fetchTerrainWindow(api,plan,controller.signal);
-  assert.equal(result.cols,4); assert.ok(maximum <= 3);
+  assert.equal(result.cols,4); assert.ok(maximum <= 6);
   controller.abort();
   await assert.rejects(fetchTerrainWindow(api,plan,controller.signal), {name:'AbortError'});
 });

@@ -32,16 +32,18 @@ no browser rendering errors. Six frontend tests and the production build passed.
 ## Implementation
 
 - `frontend/src/terrain-window.js` selects a level from camera range, aspect and
-  field of view, and requests a 3 by 3 window (clipped to two rows at a pole).
-  Levels are bounded to 2–18 and tile nodes to 65 per axis. At most three tile
-  requests run concurrently. Dateline columns wrap; geometry uses unwrapped angles.
+  field of view, and requests a 3 by 3 visible ring (clipped to two rows at a
+  pole). Levels are bounded to 2–18 and tile nodes to 65 per axis. Farther views
+  request 33-node previews; close views request 65-node tiles. Six visible tile
+  requests run concurrently, with the previous window retained until the new ring
+  is complete. Dateline columns wrap; geometry uses unwrapped angles.
 - Adjacent tiles share one edge row/column when assembled into a 193 by 193
   surface. A window replaces its predecessor only after every tile completes and
   its catalog revision matches. Changed views abort previous loads. Existing
   terrain remains visible on errors, with an explicit message and delayed retry.
 - Local geometry positions are relative to the window center to retain float
   precision. Retired geometry/materials are disposed; browser tile cache stays
-  bounded at 32 completed tiles. There is one active terrain window.
+  bounded at 96 completed tiles. There is one active terrain window.
 - `terrain-surface.js` joins the window to the coarse globe with a one-cell
   visual collar and subsurface skirt. These vertices are interpolated display
   geometry, not scientific measurements. The MOLA globe stays below the collar;

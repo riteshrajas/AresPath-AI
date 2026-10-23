@@ -10,6 +10,9 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
   for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++)
     tiles.push({ z, x: (x + n) % n, y, column: x - left, row: y - top });
   return { key: `${z}/${center.x}/${center.y}`, z, tiles, columns: 3, rows: bottom - top + 1,
+    // A smaller preview grid is enough while the camera is far away. The
+    // request stays tile-compatible, but cuts JSON and assembly work sharply.
+    size: z < 12 ? 33 : 65,
     bounds: [-180 + 360 * left / n, 90 - 180 * (bottom + 1) / n,
       -180 + 360 * (right + 1) / n, 90 - 180 * top / n] };
 }
@@ -38,10 +41,13 @@ export async function fetchTerrainWindow(api, plan, signal) {
   if (signal.aborted) throw new DOMException('Terrain request canceled', 'AbortError');
   const results = new Array(plan.tiles.length);
   let next = 0;
-  await Promise.all(Array.from({ length: 3 }, async () => {
+  // Request the visible ring in parallel. The API and browser cache still
+  // bound the total work, while the old three-at-a-time queue made every
+  // refinement wait behind three serial batches.
+  await Promise.all(Array.from({ length: 6 }, async () => {
     while (next < plan.tiles.length) {
       const index = next++, tile = plan.tiles[index];
-      results[index] = await api.tile(tile.z, tile.x, tile.y, 65, signal);
+      results[index] = await api.tile(tile.z, tile.x, tile.y, plan.size, signal);
     }
   }));
   if (signal.aborted) throw new DOMException('Terrain request canceled', 'AbortError');
