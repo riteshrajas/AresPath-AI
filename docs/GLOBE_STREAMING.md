@@ -46,13 +46,19 @@ no browser rendering errors. Six frontend tests and the production build passed.
   visual collar and subsurface skirt. These vertices are interpolated display
   geometry, not scientific measurements. The MOLA globe stays below the collar;
   only the inner window is masked to avoid overlapping surfaces.
-- MOLA uses the existing color basemap. Regional source cells use elevation
-  colors, not a new satellite orthoimage. Illumination is illustrative. Geometry
-  has 1x vertical scale. A radial camera clearance check is a viewing aid, not
-  a collision or navigation safety guarantee.
-- UI reports approximate east-west display grid spacing at the equator separately
-  from the actual point source's native/prepared resolution. Resampling dense
-  MOLA grids cannot create fine measured relief.
+- The globe and regional terrain windows use the same existing color basemap and
+  a restrained display grade, so zooming does not switch to a tan elevation
+  palette. Illumination and color are illustrative display choices, not calibrated
+  true color or a new satellite orthoimage. At close range the renderer adds a
+  deterministic, restrained regolith grain to keep the finite-resolution image
+  from reading as a magnified flat bitmap. Terrain windows also use a subtle
+  DEM-derived tint to keep measured relief legible. These are display enhancements;
+  they do not invent measured features or replace source imagery.
+  Geometry has 1x vertical scale. A radial camera clearance check is a viewing aid,
+  not a collision or navigation safety guarantee.
+- The minimal globe header keeps the product label only. Source provenance and
+  native/prepared resolution remain available through the API and tile explorer;
+  resampling dense MOLA grids cannot create fine measured relief.
 
 ## Verification, October 21, 2026
 

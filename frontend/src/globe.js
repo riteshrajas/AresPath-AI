@@ -4,17 +4,21 @@ import { SCALE, sampleMola, planetPoint } from './globe-math.js';
 import { TerrainClient } from './terrain-client.js';
 import { planTerrainWindow, fetchTerrainWindow } from './terrain-window.js';
 import { createTerrainSurface } from './terrain-surface.js';
+import { marsMaterial, gradeMarsColor } from './mars-material.js';
 
 const api = new TerrainClient(import.meta.env.VITE_API_BASE_URL || '');
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
 camera.position.set(0, 180, 1020);
 const renderer = new THREE.WebGLRenderer({ antialias: true, logarithmicDepthBuffer: true });
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.setSize(innerWidth, innerHeight);
 document.querySelector('#canvas-container').appendChild(renderer.domElement);
-scene.add(new THREE.AmbientLight(0xffeee1, .85));
-const sun = new THREE.DirectionalLight(0xffe0c6, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
-const inspection = new THREE.DirectionalLight(0xfff1df, 0); scene.add(inspection); scene.add(inspection.target);
+scene.add(new THREE.AmbientLight(0xffffff, .85));
+const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
+const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
 const errorText = document.querySelector('#error');
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain;
@@ -128,9 +132,11 @@ async function initialize() {
   };
   texture = await new THREE.TextureLoader().loadAsync(api.base + '/api/v1/basemaps/mars-color');
   texture.colorSpace = THREE.SRGBColorSpace; texture.wrapS = THREE.RepeatWrapping;
+  texture.minFilter = THREE.LinearMipmapLinearFilter; texture.magFilter = THREE.LinearFilter;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
-  const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 1 });
+  const material = marsMaterial(texture);
   material.onBeforeCompile = shader => {
+    gradeMarsColor(shader);
     shader.uniforms.terrainBounds = { value: mask };
     shader.vertexShader = 'varying vec3 planetPosition;\n' + shader.vertexShader;
     shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nplanetPosition=position;');

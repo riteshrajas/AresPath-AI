@@ -55,9 +55,10 @@ absent. The application does not claim new detail from an incomplete download.
 
 The orbital context mesh remains coarse MOLA. When a location is selected, the
 globe's zoom-driven tile window uses the new global layer, including areas outside
-Jezero/Gale. The UI separates source grid spacing from render grid spacing and
-calls this product `HRSC/MOLA`, not HiRISE. The tile explorer uses ochre for the
-global blend and gray for coarse MOLA fallback.
+Jezero/Gale. The globe and terrain windows share the existing basemap and a
+display-only color grade; this does not make the imagery calibrated true color.
+The API and tile explorer expose source provenance and resolution. The product is
+`HRSC/MOLA`, not HiRISE, and coarse-MOLA fallback remains explicitly attributed.
 
 ## Coverage and limits
 
