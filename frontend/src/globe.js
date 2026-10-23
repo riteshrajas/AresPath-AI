@@ -19,6 +19,7 @@ const errorText = document.querySelector('#error');
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain;
 let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
+let autoFocusPending = false, autoFocusRetryAt = 0;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 function makeControls(target = new THREE.Vector3()) {
   controls?.dispose(); controls = new OrbitControls(camera, renderer.domElement);
@@ -41,7 +42,7 @@ function reset() {
   inspection.intensity = 0; errorText.textContent = '';
   fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
 }
-async function explore(longitude, latitude, label = 'Selected location', range = 30000) {
+async function explore(longitude, latitude, label = 'Selected location', range = 30000, preserveView = false) {
   const token = ++selection; pending?.abort(); requestedKey = ''; retryAt = 0;
   errorText.textContent = '';
   try {
@@ -52,9 +53,31 @@ async function explore(longitude, latitude, label = 'Selected location', range =
     const north = new THREE.Vector3(-Math.sin(lat) * Math.cos(lon), Math.cos(lat), Math.sin(lat) * Math.sin(lon));
     local = { longitude, latitude, label, coverage }; loadedKey = '';
     inspection.intensity = 1;
+    if (preserveView) {
+      camera.up.copy(normal); makeControls(center);
+      return;
+    }
     const distance = range * SCALE;
     fly(center.clone().addScaledVector(normal, distance).addScaledVector(north, -distance * .45), center, normal);
   } catch (error) { if (selection === token) errorText.textContent = `Location unavailable: ${error.message}`; }
+}
+async function focusFromZoom(now) {
+  if (local || flight || !baseMesh || autoFocusPending || now < autoFocusRetryAt) return;
+  // Switch before the old orbit-distance floor can block a surface approach.
+  const radial = camera.position.length();
+  const latitude = Math.asin(camera.position.y / radial) * 180 / Math.PI;
+  const longitude = Math.atan2(-camera.position.z, camera.position.x) * 180 / Math.PI;
+  const ground = sampleMola(radiusGrid, mola.width, mola.height, longitude, latitude, mola.offset_m);
+  if (radial / SCALE - ground > 550000) return;
+  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const hit = ray.intersectObject(baseMesh)[0];
+  if (!hit) return;
+  const direction = hit.point.clone().normalize();
+  const lon = Math.atan2(-direction.z, direction.x) * 180 / Math.PI;
+  const lat = Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) * 180 / Math.PI;
+  autoFocusPending = true;
+  try { await explore(lon, lat, 'Zoom location', 0, true); }
+  finally { autoFocusPending = false; autoFocusRetryAt = performance.now() + 2000; }
 }
 async function updateTerrain(now) {
   if (!local || flight || now < scheduledAt || now < retryAt) return;
@@ -159,7 +182,7 @@ renderer.setAnimationLoop(now => {
   }
   inspection.position.copy(camera.position); inspection.target.position.copy(controls.target);
   document.querySelector('#range').textContent = `${(camera.position.distanceTo(controls.target) / SCALE / 1000).toFixed(1)} km view range`;
-  updateTerrain(now); renderer.render(scene, camera);
+  focusFromZoom(now); updateTerrain(now); renderer.render(scene, camera);
 });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 initialize().catch(error => { errorText.textContent = error.message; console.error(error); });

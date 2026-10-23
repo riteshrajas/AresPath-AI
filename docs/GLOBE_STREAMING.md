@@ -10,9 +10,24 @@ and Gale grid overlays are removed from this frontend; the older `web/` viewer
 and scientific files remain available.
 
 Open http://127.0.0.1:5173/ (development) or http://127.0.0.1:8001/ (built app).
-Use Jezero/Gale, enter east longitude and latitude, or double-click the globe.
-Drag to orbit the selected point and scroll to zoom. Mars returns to orbit;
-zooming out past 1,200 km view range also returns to planet-centered controls.
+The header is now minimal: ARESPATH, the explorer subtitle and a Mars globe label.
+Scroll toward the surface to select the center of the view automatically and load
+terrain. Double-click remains an optional way to select another point. Legacy
+`?site=jezero` and `?site=gale` links still work, and coordinate entry is available
+in `/tiles.html`. Drag to orbit the selected point. Zooming out past 1,200 km view
+range returns to planet-centered controls.
+
+**October 22 zoom fix:** the previous streaming path required an explicit selected
+point, so scrolling alone never entered it and stopped at the orbital minimum
+distance. The globe now raycasts its view center once the estimated surface
+altitude drops below 550 km, obtains source coverage, and adopts that surface
+target while retaining the current camera position. A request guard and 2-second
+retry delay prevent overlapping automatic selections; the separate 1,200 km exit
+threshold prevents mode oscillation. Existing source-resolution limits remain.
+Browser verification used only scrolling from the initial 12,562.3 km orbital
+range to local ranges of 119.2, 57.0 and 18.8 km. API logs confirmed coverage
+selection and terrain tile levels 7, 8 and 10 (200/validated-304 responses), with
+no browser rendering errors. Six frontend tests and the production build passed.
 
 ## Implementation
 
