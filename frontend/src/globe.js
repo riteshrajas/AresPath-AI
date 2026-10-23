@@ -20,6 +20,7 @@ scene.add(new THREE.AmbientLight(0xffffff, .85));
 const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
 const errorText = document.querySelector('#error');
+const loadingStatus = document.querySelector('#loading-status');
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain;
 let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
@@ -44,9 +45,14 @@ function clearTerrain() {
   if (terrain) { scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); terrain.mesh.material.dispose(); terrain = null; }
   mask.set(0, 0, 0, 0); loadedKey = '';
 }
+function setLoadingStatus(text, state = '') {
+  loadingStatus.textContent = text;
+  loadingStatus.className = state;
+}
 function reset() {
   selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain();
   inspection.intensity = 0; errorText.textContent = '';
+  setLoadingStatus('Mars globe ready', 'ready');
   fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
 }
 async function explore(longitude, latitude, label = 'Selected location', range = 30000, preserveView = false) {
@@ -95,21 +101,27 @@ async function updateTerrain(now) {
   const plan = planTerrainWindow(local.longitude, local.latitude, range, camera.aspect, camera.fov);
   if (plan.key === loadedKey || plan.key === requestedKey) return;
   pending?.abort(); const controller = new AbortController(); pending = controller; requestedKey = plan.key;
+  setLoadingStatus(`Loading terrain · 0/${plan.tiles.length} tiles · LOD ${plan.z}`, 'loading');
   try {
-    const data = await fetchTerrainWindow(api, plan, controller.signal);
+    const data = await fetchTerrainWindow(api, plan, controller.signal, (done, total) => {
+      if (!controller.signal.aborted) setLoadingStatus(`Loading terrain · ${done}/${total} tiles · LOD ${plan.z}`, 'loading');
+    });
     if (controller.signal.aborted || !local) return;
     const next = createTerrainSurface(data, texture, baseRadiusAt); clearTerrain();
     // Leave the coarse globe beneath the visual collar. Masking through its
     // outside edge exposes tiny cracks where curved edges cross coarse faces.
     terrain = next; scene.add(next.mesh); loadedKey = plan.key; mask.set(...data.bounds);
     errorText.textContent = '';
+    setLoadingStatus(`Terrain ready · LOD ${plan.z} · ${data.sourceMetadata.length} source${data.sourceMetadata.length === 1 ? '' : 's'}`, 'ready');
   } catch (error) {
     if (error.name !== 'AbortError' && !controller.signal.aborted) {
       errorText.textContent = `Terrain unavailable: ${error.message}. Existing terrain remains visible.`; retryAt = performance.now() + 10000;
+      setLoadingStatus('Terrain load paused · retrying', 'loading');
     }
   } finally { if (pending === controller) requestedKey = ''; }
 }
 async function initialize() {
+  setLoadingStatus('Loading Mars globe…', 'loading');
   mola = await api.json('/api/v1/globe/manifest');
   const response = await fetch(api.base + '/api/v1/globe/radius.i16');
   if (!response.ok) throw Error(`MOLA unavailable: HTTP ${response.status}`);

@@ -38,10 +38,10 @@ export function assembleTerrainWindow(plan, tiles) {
   return { rows, cols, radii, heights, sources, sourceMetadata: [...metadata.values()], bounds: plan.bounds, z: plan.z };
 }
 
-export async function fetchTerrainWindow(api, plan, signal) {
+export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {}) {
   if (signal.aborted) throw new DOMException('Terrain request canceled', 'AbortError');
   const results = new Array(plan.tiles.length);
-  let next = 0;
+  let next = 0, completed = 0;
   // Request the visible ring in parallel. The API and browser cache still
   // bound the total work, while the old three-at-a-time queue made every
   // refinement wait behind three serial batches.
@@ -49,6 +49,7 @@ export async function fetchTerrainWindow(api, plan, signal) {
     while (next < plan.tiles.length) {
       const index = next++, tile = plan.tiles[index];
       results[index] = await api.tile(tile.z, tile.x, tile.y, plan.size, signal);
+      onProgress(++completed, plan.tiles.length);
     }
   }));
   if (signal.aborted) throw new DOMException('Terrain request canceled', 'AbortError');
