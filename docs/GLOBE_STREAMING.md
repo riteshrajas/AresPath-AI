@@ -41,7 +41,10 @@ no browser rendering errors. Six frontend tests and the production build passed.
   requests run concurrently, with the previous window retained until the new ring
   is complete. The tile under the camera's view center becomes the primary chunk;
   when the focus crosses the ring threshold, the surrounding tiles are rebuilt at
-  that same LOD. Dateline columns wrap; geometry uses unwrapped angles.
+  that same LOD. Completed tiles now publish partial windows while the remaining
+  ring is in flight; missing cells temporarily fall back to the coarse globe and
+  are replaced as their measured tile arrives. Dateline columns wrap; geometry
+  uses unwrapped angles.
 - Adjacent tiles share one edge row/column when assembled into a 193 by 193
   surface. A window replaces its predecessor only after every tile completes and
   its catalog revision matches. Changed views abort previous loads. Existing

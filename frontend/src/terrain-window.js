@@ -26,14 +26,22 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
 
 // Inclusive tile edges share one output node. Longitudes stay unwrapped across
 // the dateline so the assembled surface and its visual collar are continuous.
-export function assembleTerrainWindow(plan, tiles) {
-  const size = tiles[0].grid.rows;
-  if (!tiles.every(tile => tile.grid.rows === size && tile.grid.cols === size && tile.revision === tiles[0].revision))
+export function assembleTerrainWindow(plan, tiles, fallbackRadiusAt) {
+  const first = tiles.find(Boolean);
+  if (!first) return null;
+  const size = first.grid.rows;
+  if (!tiles.filter(Boolean).every(tile => tile.grid.rows === size && tile.grid.cols === size && tile.revision === first.revision))
     throw Error('Terrain tiles must have matching grids and catalog revisions');
   const cols = plan.columns * (size - 1) + 1, rows = plan.rows * (size - 1) + 1;
   const radii = new Float64Array(rows * cols), heights = new Float64Array(rows * cols);
   const sources = new Uint16Array(rows * cols), metadata = new Map();
+  for (let y = 0; y < rows; y++) for (let x = 0; x < cols; x++) {
+    const longitude = plan.bounds[0] + (plan.bounds[2] - plan.bounds[0]) * x / (cols - 1);
+    const latitude = plan.bounds[3] - (plan.bounds[3] - plan.bounds[1]) * y / (rows - 1);
+    radii[y * cols + x] = fallbackRadiusAt ? fallbackRadiusAt(longitude, latitude) : first.grid.radii_m[0];
+  }
   tiles.forEach((tile, index) => {
+    if (!tile) return;
     const placement = plan.tiles[index];
     tile.sources.forEach(source => metadata.set(source.id, source));
     for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
@@ -44,7 +52,7 @@ export function assembleTerrainWindow(plan, tiles) {
   return { rows, cols, radii, heights, sources, sourceMetadata: [...metadata.values()], bounds: plan.bounds, z: plan.z };
 }
 
-export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {}) {
+export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {}, onPartial = () => {}, fallbackRadiusAt) {
   if (signal.aborted) throw new DOMException('Terrain request canceled', 'AbortError');
   const results = new Array(plan.tiles.length);
   let next = 0, completed = 0;
@@ -55,9 +63,12 @@ export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {
     while (next < plan.tiles.length) {
       const index = next++, tile = plan.tiles[index];
       results[index] = await api.tile(tile.z, tile.x, tile.y, plan.size, signal);
-      onProgress(++completed, plan.tiles.length);
+      const done = ++completed;
+      onProgress(done, plan.tiles.length);
+      if (done === 1 || done % 3 === 0 || done === plan.tiles.length)
+        onPartial(assembleTerrainWindow(plan, results, fallbackRadiusAt), done, plan.tiles.length);
     }
   }));
   if (signal.aborted) throw new DOMException('Terrain request canceled', 'AbortError');
-  return assembleTerrainWindow(plan, results);
+  return assembleTerrainWindow(plan, results, fallbackRadiusAt);
 }

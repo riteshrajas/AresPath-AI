@@ -47,9 +47,11 @@ test('window limits visible-ring concurrency and abort never publishes a partial
     await new Promise(resolve => setTimeout(resolve,1)); active--; return fixture(); } };
   const plan = planTerrainWindow(0,0,10000), controller = new AbortController();
   const progress = [];
-  const result = await fetchTerrainWindow(api,plan,controller.signal, (done, total) => progress.push([done, total]));
+  const partials = [];
+  const result = await fetchTerrainWindow(api,plan,controller.signal, (done, total) => progress.push([done, total]), partial => partials.push(partial));
   assert.equal(result.cols,4); assert.ok(maximum <= (plan.concurrency || 6));
   assert.equal(progress.at(-1)[0], plan.tiles.length);
+  assert.ok(partials.length >= 1);
   controller.abort();
   await assert.rejects(fetchTerrainWindow(api,plan,controller.signal), {name:'AbortError'});
 });

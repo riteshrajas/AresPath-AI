@@ -140,9 +140,14 @@ async function updateTerrain(now) {
   pending?.abort(); const controller = new AbortController(); pending = controller; requestedKey = plan.key;
   setLoadingStatus(`Loading terrain · 0/${plan.tiles.length} tiles · LOD ${plan.z}`, 'loading');
   try {
+    const publishPartial = data => {
+      if (controller.signal.aborted || !local || !data) return;
+      const next = createTerrainSurface(data, texture, baseRadiusAt); clearTerrain();
+      terrain = next; scene.add(next.mesh); mask.set(...data.bounds);
+    };
     const data = await fetchTerrainWindow(api, plan, controller.signal, (done, total) => {
       if (!controller.signal.aborted) setLoadingStatus(`Loading terrain · ${done}/${total} tiles · LOD ${plan.z}`, 'loading');
-    });
+    }, partial => publishPartial(partial), baseRadiusAt);
     if (controller.signal.aborted || !local) return;
     const next = createTerrainSurface(data, texture, baseRadiusAt); clearTerrain();
     // Leave the coarse globe beneath the visual collar. Masking through its
