@@ -4,8 +4,9 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
   const visibleWidth = Math.max(100, 2 * rangeMeters * Math.tan(fov * Math.PI / 360) * Math.max(1, aspect));
   const z = Math.max(2, Math.min(18, Math.floor(Math.log2(2 * 21344000 / visibleWidth))));
   const center = pointToTile(longitude, latitude, z), n = 2 ** z;
-  const left = center.x - 1, right = center.x + 1;
-  const top = Math.max(0, center.y - 1), bottom = Math.min(n - 1, center.y + 1);
+  const ring = globalThis.__ARESPATH_TURBO__ ? 2 : 1;
+  const left = center.x - ring, right = center.x + ring;
+  const top = Math.max(0, center.y - ring), bottom = Math.min(n - 1, center.y + ring);
   const tiles = [];
   for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++)
     tiles.push({ z, x: (x + n) % n, y, column: x - left, row: y - top });
@@ -14,7 +15,8 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
     // A smaller preview grid is enough only while the camera is genuinely far
     // away. Keep mid-range views at full tile density so terrain does not look
     // soft during the transition into a close inspection.
-    size: z < 10 ? 33 : 65,
+    size: z < 8 ? 33 : 65,
+    ring,
     bounds: [-180 + 360 * left / n, 90 - 180 * (bottom + 1) / n,
       -180 + 360 * (right + 1) / n, 90 - 180 * top / n] };
 }

@@ -34,7 +34,9 @@ no browser rendering errors. Six frontend tests and the production build passed.
 - `frontend/src/terrain-window.js` selects a level from camera range, aspect and
   field of view, and requests a 3 by 3 visible ring (clipped to two rows at a
   pole). Levels are bounded to 2–18 and tile nodes to 65 per axis. Only genuinely
-  far views request 33-node previews; mid-range and close views request 65-node tiles. Six visible tile
+  far views below LOD 8 request 33-node previews; mid-range and close views request
+  65-node tiles. Turbo mode expands the near-camera ring to 5 by 5 at the same LOD;
+  normal mode keeps a 3 by 3 ring. Six visible tile
   requests run concurrently, with the previous window retained until the new ring
   is complete. The tile under the camera's view center becomes the primary chunk;
   when the focus crosses the ring threshold, the surrounding tiles are rebuilt at
