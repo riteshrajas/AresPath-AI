@@ -10,7 +10,7 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
   const tiles = [];
   for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++)
     tiles.push({ z, x: (x + n) % n, y, column: x - left, row: y - top });
-  return { key: `${z}/${center.x}/${center.y}`, z, tiles, columns: 3, rows: bottom - top + 1,
+  return { key: `${z}/${center.x}/${center.y}`, z, tiles, columns: right - left + 1, rows: bottom - top + 1,
     concurrency: globalThis.__ARESPATH_TURBO__ ? 9 : 6,
     // A smaller preview grid is enough only while the camera is genuinely far
     // away. Keep mid-range views at full tile density so terrain does not look

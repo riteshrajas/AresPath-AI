@@ -14,6 +14,15 @@ test('zoom selects finer level while dateline and pole tile requests stay valid'
   assert.ok(planTerrainWindow(-180,0,10000).bounds[0] < -180);
 });
 
+test('Turbo ring metadata matches its five-by-five tile layout', () => {
+  globalThis.__ARESPATH_TURBO__ = true;
+  try {
+    const plan = planTerrainWindow(138.35, -4.92, 67000);
+    assert.equal(plan.ring, 2); assert.equal(plan.columns, 5); assert.equal(plan.rows, 5);
+    assert.equal(plan.tiles.length, 25); assert.equal(plan.size, 65);
+  } finally { delete globalThis.__ARESPATH_TURBO__; }
+});
+
 const fixture = (tile, revision = 'fixture') => ({ revision, sources:[{id:0,kind:'MOLA'}],
   grid:{rows:2,cols:2,radii_m:[1,2,3,4],heights_m:[0,1,2,3],source_ids:[0,0,0,0]} });
 
