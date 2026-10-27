@@ -36,7 +36,9 @@ no browser rendering errors. Six frontend tests and the production build passed.
   pole). Levels are bounded to 2–18 and tile nodes to 65 per axis. Only genuinely
   far views request 33-node previews; mid-range and close views request 65-node tiles. Six visible tile
   requests run concurrently, with the previous window retained until the new ring
-  is complete. Dateline columns wrap; geometry uses unwrapped angles.
+  is complete. The tile under the camera's view center becomes the primary chunk;
+  when the focus crosses the ring threshold, the surrounding tiles are rebuilt at
+  that same LOD. Dateline columns wrap; geometry uses unwrapped angles.
 - Adjacent tiles share one edge row/column when assembled into a 193 by 193
   surface. A window replaces its predecessor only after every tile completes and
   its catalog revision matches. Changed views abort previous loads. Existing

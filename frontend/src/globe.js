@@ -102,11 +102,40 @@ async function focusFromZoom(now) {
   try { await explore(lon, lat, 'Zoom location', 0, true); }
   finally { autoFocusPending = false; autoFocusRetryAt = performance.now() + 2000; }
 }
+function cameraGroundFocus() {
+  if (!baseMesh) return null;
+  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+  const objects = terrain ? [terrain.mesh, baseMesh] : [baseMesh];
+  const hit = ray.intersectObjects(objects)[0];
+  if (!hit) return null;
+  const direction = hit.point.clone().normalize();
+  return {
+    longitude: Math.atan2(-direction.z, direction.x) * 180 / Math.PI,
+    latitude: Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) * 180 / Math.PI
+  };
+}
+function followCameraTile(plan) {
+  const focus = cameraGroundFocus();
+  if (!focus || !local) return;
+  const centerLon = local.longitude;
+  const deltaLon = Math.abs(((focus.longitude - centerLon + 540) % 360) - 180);
+  const deltaLat = Math.abs(focus.latitude - local.latitude);
+  const threshold = Math.max(plan.bounds[2] - plan.bounds[0], plan.bounds[3] - plan.bounds[1]) * 0.35;
+  if (Math.max(deltaLon, deltaLat) > threshold) {
+    // Camera-centric chunk backtracking: make the tile under the view primary,
+    // then rebuild the surrounding ring at the same LOD as that primary tile.
+    local.longitude = focus.longitude;
+    local.latitude = focus.latitude;
+    loadedKey = '';
+  }
+}
 async function updateTerrain(now) {
   if (!local || flight || now < scheduledAt || now < retryAt) return;
   scheduledAt = now + 250;
   const range = camera.position.distanceTo(controls.target) / SCALE;
-  const plan = planTerrainWindow(local.longitude, local.latitude, range, camera.aspect, camera.fov);
+  let plan = planTerrainWindow(local.longitude, local.latitude, range, camera.aspect, camera.fov);
+  followCameraTile(plan);
+  plan = planTerrainWindow(local.longitude, local.latitude, range, camera.aspect, camera.fov);
   if (plan.key === loadedKey || plan.key === requestedKey) return;
   pending?.abort(); const controller = new AbortController(); pending = controller; requestedKey = plan.key;
   setLoadingStatus(`Loading terrain · 0/${plan.tiles.length} tiles · LOD ${plan.z}`, 'loading');
