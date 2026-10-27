@@ -10,6 +10,7 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
   for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++)
     tiles.push({ z, x: (x + n) % n, y, column: x - left, row: y - top });
   return { key: `${z}/${center.x}/${center.y}`, z, tiles, columns: 3, rows: bottom - top + 1,
+    concurrency: globalThis.__ARESPATH_TURBO__ ? 9 : 6,
     // A smaller preview grid is enough only while the camera is genuinely far
     // away. Keep mid-range views at full tile density so terrain does not look
     // soft during the transition into a close inspection.
@@ -45,7 +46,7 @@ export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {
   // Request the visible ring in parallel. The API and browser cache still
   // bound the total work, while the old three-at-a-time queue made every
   // refinement wait behind three serial batches.
-  await Promise.all(Array.from({ length: 6 }, async () => {
+  await Promise.all(Array.from({ length: plan.concurrency || 6 }, async () => {
     while (next < plan.tiles.length) {
       const index = next++, tile = plan.tiles[index];
       results[index] = await api.tile(tile.z, tile.x, tile.y, plan.size, signal);

@@ -39,7 +39,8 @@ export class TerrainClient {
     this.cache.set(path, value);
     // Keep a few neighboring rings warm so small camera movements do not
     // re-download the same parent/child tiles.
-    if (this.cache.size > 96) this.cache.delete(this.cache.keys().next().value);
+    const limit = globalThis.__ARESPATH_TURBO__ ? 160 : 96;
+    if (this.cache.size > limit) this.cache.delete(this.cache.keys().next().value);
     return value;
   }
 }
