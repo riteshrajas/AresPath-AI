@@ -2,7 +2,10 @@ import { pointToTile } from './terrain-client.js';
 
 export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, fov = 45) {
   const visibleWidth = Math.max(100, 2 * rangeMeters * Math.tan(fov * Math.PI / 360) * Math.max(1, aspect));
-  const z = Math.max(2, Math.min(18, Math.floor(Math.log2(2 * 21344000 / visibleWidth))));
+  const baseZ = Math.floor(Math.log2(2 * 21344000 / visibleWidth));
+  // Turbo spends two extra tile levels on the visible source raster. This
+  // reduces nearest-cell terracing without changing the measured elevations.
+  const z = Math.max(2, Math.min(18, baseZ + (globalThis.__ARESPATH_TURBO__ ? 2 : 0)));
   const center = pointToTile(longitude, latitude, z), n = 2 ** z;
   const ring = globalThis.__ARESPATH_TURBO__ ? 2 : 1;
   const left = center.x - ring, right = center.x + ring;

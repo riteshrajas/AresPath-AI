@@ -23,6 +23,13 @@ test('Turbo ring metadata matches its five-by-five tile layout', () => {
   } finally { delete globalThis.__ARESPATH_TURBO__; }
 });
 
+test('Turbo biases the same source window toward finer LOD', () => {
+  const normal = planTerrainWindow(138.35, -4.92, 5100);
+  globalThis.__ARESPATH_TURBO__ = true;
+  try { assert.equal(planTerrainWindow(138.35, -4.92, 5100).z, Math.min(18, normal.z + 2)); }
+  finally { delete globalThis.__ARESPATH_TURBO__; }
+});
+
 const fixture = (tile, revision = 'fixture') => ({ revision, sources:[{id:0,kind:'MOLA'}],
   grid:{rows:2,cols:2,radii_m:[1,2,3,4],heights_m:[0,1,2,3],source_ids:[0,0,0,0]} });
 
