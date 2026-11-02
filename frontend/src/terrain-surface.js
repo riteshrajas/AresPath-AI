@@ -2,17 +2,19 @@ import * as THREE from 'three';
 import { planetPoint, terrainIndices } from './globe-math.js';
 import { marsMaterial } from './mars-material.js';
 
-export function createTerrainSurface(data, texture, baseRadiusAt) {
-  const { rows, cols, bounds, radii, heights } = data;
+export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = null) {
+  const { rows, cols, bounds, radii, heights, measured } = data;
   const [west, south, east, north] = bounds;
   const point = (lon, lat, radius) => new THREE.Vector3(...planetPoint(lon, lat, radius));
   const center = point((west + east) / 2, (south + north) / 2, radii[Math.floor(radii.length / 2)]);
   const positions = [], colors = [], uvs = [];
   let minHeight = Infinity, maxHeight = -Infinity;
-  for (const height of heights) { minHeight = Math.min(minHeight, height); maxHeight = Math.max(maxHeight, height); }
+  for (let i = 0; i < heights.length; i++) if (!measured || measured[i]) {
+    minHeight = Math.min(minHeight, heights[i]); maxHeight = Math.max(maxHeight, heights[i]);
+  }
   const add = (longitude, latitude, radius, height = minHeight) => {
     positions.push(...point(longitude, latitude, radius).sub(center).toArray());
-    const t = (height - minHeight) / Math.max(1, maxHeight - minHeight);
+    const t = THREE.MathUtils.clamp((height - minHeight) / Math.max(1, maxHeight - minHeight), 0, 1);
     colors.push(.34 + .19 * t, .20 + .13 * t, .14 + .08 * t);
     uvs.push((longitude + 180) / 360, (latitude + 90) / 180);
   };
@@ -53,6 +55,34 @@ export function createTerrainSurface(data, texture, baseRadiusAt) {
   // Use the same basemap and grade as the globe at every zoom. Elevation still
   // shapes the geometry; it no longer recolors each window into a tan palette.
   const material = marsMaterial(texture, THREE.DoubleSide); material.vertexColors = true;
+  if (innerMask) {
+    const compile = material.onBeforeCompile;
+    material.onBeforeCompile = shader => {
+      compile(shader);
+      shader.uniforms.innerTerrainBounds = { value: innerMask };
+      shader.fragmentShader = 'uniform vec4 innerTerrainBounds;\n' + shader.fragmentShader;
+      shader.fragmentShader = shader.fragmentShader.replace('#include <map_fragment>', `#include <map_fragment>
+        float maskLon=vMapUv.x*360.0-180.0, maskLat=vMapUv.y*180.0-90.0;
+        float maskMid=(innerTerrainBounds.x+innerTerrainBounds.z)*0.5;
+        maskLon=maskMid+mod(maskLon-maskMid+540.0,360.0)-180.0;
+        if(innerTerrainBounds.z>innerTerrainBounds.x && maskLon>innerTerrainBounds.x && maskLon<innerTerrainBounds.z && maskLat>innerTerrainBounds.y && maskLat<innerTerrainBounds.w) discard;`);
+    };
+  }
   const mesh = new THREE.Mesh(geometry, material); mesh.position.copy(center);
   return { mesh, data, outer };
+}
+
+// Sample the wider context window for the inner window's display-only collar.
+// The source height grids remain unmodified and are still served by the API.
+export function contextRadiusAt(data, longitude, latitude, fallback) {
+  const [west, south, east, north] = data.bounds;
+  const center = (west + east) / 2;
+  const lon = center + ((longitude - center + 540) % 360) - 180;
+  if (lon < west || lon > east || latitude < south || latitude > north) return fallback(longitude, latitude);
+  const x = (lon - west) / (east - west) * (data.cols - 1);
+  const y = (north - latitude) / (north - south) * (data.rows - 1);
+  const x0 = Math.min(data.cols - 2, Math.floor(x)), y0 = Math.min(data.rows - 2, Math.floor(y));
+  const fx = x - x0, fy = y - y0, at = (xx, yy) => data.radii[yy * data.cols + xx];
+  return (1 - fy) * ((1 - fx) * at(x0, y0) + fx * at(x0 + 1, y0))
+    + fy * ((1 - fx) * at(x0, y0 + 1) + fx * at(x0 + 1, y0 + 1));
 }

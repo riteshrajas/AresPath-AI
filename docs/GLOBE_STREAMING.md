@@ -45,10 +45,20 @@ no browser rendering errors. Six frontend tests and the production build passed.
   ring is in flight; missing cells temporarily fall back to the coarse globe and
   are replaced as their measured tile arrives. Dateline columns wrap; geometry
   uses unwrapped angles.
-- Adjacent tiles share one edge row/column when assembled into a 193 by 193
-  surface. A window replaces its predecessor only after every tile completes and
-  its catalog revision matches. Changed views abort previous loads. Existing
-  terrain remains visible on errors, with an explicit message and delayed retry.
+- A second, coarser 5 by 5 window is requested two levels below the foreground
+  window (33 nodes per tile). It provides a wider area of real elevation context
+  where available, while the coarse globe remains beyond it. The foreground
+  clips the middle of this window; its display collar samples the wider grid.
+  Loading is independent and can finish after the foreground. Its bilinear
+  collar approximation and the different mesh triangulations may still leave
+  visible seams; this is not a full-horizon quadtree or guaranteed complete
+  high-resolution coverage.
+- Adjacent tiles share one edge row/column. Requests start near the view center;
+  partial windows show completed tiles with coarse MOLA fallback until the other
+  tiles arrive. Intermediate rebuilds are limited to reduce main-thread work.
+  Tile revisions must match. Changed views abort previous loads, and failures
+  show an explicit message and retry after a delay. Partial fallback may pop as
+  finer data arrives, and is not equivalent to a complete measured surface.
 - Local geometry positions are relative to the window center to retain float
   precision. Retired geometry/materials are disposed; browser tile cache stays
   bounded at 96 completed tiles. There is one active terrain window.

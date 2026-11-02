@@ -19,6 +19,18 @@ test('tile cache reuses completed response and respects abort', async () => {
   await assert.rejects(client.tile(1,0,0,65,controller.signal), {name:'AbortError'});
 });
 
+test('native and display tile requests use separate cache entries', async () => {
+  const paths = [];
+  const client = new TerrainClient('', async path => { paths.push(path); return {ok:true,json:async()=>({path})}; });
+  await client.tile(1,0,0);
+  await client.tile(1,0,0,65,undefined,'display');
+  await client.tile(1,0,0,65,undefined,'display');
+  assert.equal(paths.length,2);
+  assert.match(paths[1], /sampling=display/);
+  assert.doesNotMatch(paths[0], /sampling=/);
+  await assert.rejects(client.tile(1,0,0,65,undefined,'invalid'), /sampling/);
+});
+
 test('API failures surface, not simulated terrain', async () => {
   const client = new TerrainClient('', async () => ({ok:false,status:503,json:async()=>({detail:'Prepared data missing'})}));
   await assert.rejects(client.tile(0,0,0), /Prepared data missing/);

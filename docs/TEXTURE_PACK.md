@@ -11,7 +11,17 @@ generates:
 
 The existing Mars color basemap remains the albedo layer. The derived maps do
 not create new photographic detail, and they should not be described as
-HiRISE imagery. Generate a pack with, for example:
+HiRISE imagery.
+
+The globe's shared material uses an artistic, image-dependent color grade to
+give existing darker and brighter regions distinct hues. Fine procedural grain
+fades out when smaller than a pixel. These color and grain effects are display
+enhancements, not measured mineralogy or new imagery; neither changes elevation.
+The grade also lifts very dark basemap colors to keep relief visible; this does
+not recover detail absent from the image.
+The basemap has not been independently registered to the elevation sources.
+
+Generate a pack with, for example:
 
 ```powershell
 python pipeline/build_texture_pack.py --site gale

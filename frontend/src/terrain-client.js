@@ -26,8 +26,9 @@ export class TerrainClient {
   coverage(longitude, latitude, signal) {
     return this.json(`/api/v1/coverage?longitude=${longitude}&latitude=${latitude}`, signal);
   }
-  async tile(z, x, y, size = 65, signal) {
-    const path = `/api/v1/tiles/${z}/${x}/${y}?size=${size}`;
+  async tile(z, x, y, size = 65, signal, sampling = 'native') {
+    if (!['native', 'display'].includes(sampling)) throw Error('Unsupported terrain sampling mode');
+    const path = `/api/v1/tiles/${z}/${x}/${y}?size=${size}${sampling === 'display' ? '&sampling=display' : ''}`;
     if (signal?.aborted) throw new DOMException('Request canceled', 'AbortError');
     if (this.cache.has(path)) {
       const value = this.cache.get(path);

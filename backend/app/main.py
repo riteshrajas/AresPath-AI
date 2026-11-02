@@ -41,18 +41,19 @@ def create_app(data_root=None):
 
     @api.get('/tiles/{z}/{x}/{y}')
     def tile(request:Request, response:Response, z:Annotated[int,PathParam(ge=0,le=18)],
-             x:Annotated[int,PathParam(ge=0)], y:Annotated[int,PathParam(ge=0)], size:Annotated[int,Query(ge=33,le=129)]=65):
+             x:Annotated[int,PathParam(ge=0)], y:Annotated[int,PathParam(ge=0)], size:Annotated[int,Query(ge=33,le=129)]=65,
+             sampling:Literal['native','display']='native'):
         if size not in (33,65,129):
             raise HTTPException(422,'Supported tile grid sizes are 33, 65 and 129')
         if x>=2**z or y>=2**z:
             raise HTTPException(422,'Tile coordinates outside the declared grid')
-        etag=f'"{store.revision}-{z}-{x}-{y}-{size}"'
+        etag=f'"{store.revision}-{z}-{x}-{y}-{size}-{sampling}"'
         if not store.ready:
             raise HTTPException(503,'Prepared MOLA terrain missing; run pipeline/stitch_globe.py')
         if request.headers.get('if-none-match')==etag:
             return Response(status_code=304,headers={'ETag':etag,'Cache-Control':'public, max-age=3600'})
         before=store.tile.cache_info().hits
-        result=store.tile(z,x,y,size)
+        result=store.tile(z,x,y,size,sampling)
         response.headers['ETag']=etag
         response.headers['Cache-Control']='public, max-age=3600'
         response.headers['X-Terrain-Cache']='HIT' if store.tile.cache_info().hits>before else 'MISS'

@@ -6,7 +6,7 @@ import rasterio
 from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
-from backend.app.terrain import tile_bounds, contains
+from backend.app.terrain import tile_bounds, contains, sample_native_cells, sample_global_display_cells
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -37,6 +37,45 @@ def test_longitude_wrap_and_antimeridian_bounds():
     assert contains([170,-10,-170,10],-179,0)
     assert contains([-80,-10,-70,10],285,0)
     assert not contains([170,-10,-170,10],0,0)
+
+
+def test_block_sampling_matches_rasterio_nearest_with_masks():
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_origin
+    pixels = np.arange(32 * 32, dtype=np.int16).reshape(32, 32)
+    pixels[4, 7] = -9999
+    with MemoryFile() as memory:
+        with memory.open(driver='GTiff', width=32, height=32, count=1, dtype='int16',
+                         transform=from_origin(0, 32, 1, 1), nodata=-9999,
+                         tiled=True, blockxsize=16, blockysize=16) as dataset:
+            dataset.write(pixels, 1)
+            x = [7.5, 0.5, 15.5, 16.0, 31.5, -1.0, 32.0, 7.5]
+            y = [27.5, 31.5, 16.5, 16.0, 0.5, 0.5, 0.5, 27.5]
+            expected = np.ma.concatenate(list(dataset.sample(list(zip(x, y)), masked=True)))
+            actual = sample_native_cells(dataset, x, y)
+            np.testing.assert_array_equal(np.ma.getmaskarray(actual), np.ma.getmaskarray(expected))
+            np.testing.assert_array_equal(actual.compressed(), expected.compressed())
+
+
+def test_display_interpolation_uses_pixel_centers_and_respects_masks_and_edges():
+    from rasterio.io import MemoryFile
+    from rasterio.transform import from_origin
+    pixels = np.array([[0, 10, 20], [20, 30, 40], [40, 50, -9999]], dtype=np.int16)
+    with MemoryFile() as memory:
+        with memory.open(driver='GTiff', width=3, height=3, count=1, dtype='int16',
+                         transform=from_origin(0, 3, 1, 1), nodata=-9999) as dataset:
+            dataset.write(pixels, 1)
+            # A native center is exact; between four cells is their weighted
+            # mean; missing neighbors/edge return the nearest native cell.
+            x = [0.5, 1.0, 1.9, 0.1, 2.5, 3.1]
+            y = [2.5, 2.0, 0.9, 2.9, 0.5, 2.5]
+            result = sample_global_display_cells(dataset, x, y)
+            assert result[0] == 0
+            assert result[1] == pytest.approx(15)
+            assert result[2] == sample_native_cells(dataset, x, y)[2]
+            assert result[3] == 0
+            assert np.ma.getmaskarray(result)[4]
+            assert np.ma.getmaskarray(result)[5]
 
 
 def test_real_native_height_and_provenance(client):
@@ -88,6 +127,27 @@ def test_adjacent_tile_edges_and_cache(client):
     assert again.headers['X-Terrain-Cache']=='HIT'
     assert again.headers['ETag']==left.headers['ETag']
     assert client.get('/api/v1/tiles/2/1/1?size=33',headers={'If-None-Match':left.headers['ETag']}).status_code==304
+
+
+def test_display_tiles_are_separate_from_native_and_share_edges(client):
+    native = client.get('/api/v1/tiles/12/2048/2048?size=33')
+    display = client.get('/api/v1/tiles/12/2048/2048?size=33&sampling=display')
+    other = client.get('/api/v1/tiles/12/2049/2048?size=33&sampling=display')
+    assert native.status_code == display.status_code == other.status_code == 200
+    assert native.headers['ETag'] != display.headers['ETag']
+    assert 'nearest native' in native.json()['sampling']
+    assert 'for display' in display.json()['sampling']
+    a = np.array(display.json()['grid']['radii_m']).reshape(33, 33)
+    b = np.array(other.json()['grid']['radii_m']).reshape(33, 33)
+    np.testing.assert_array_equal(a[:, -1], b[:, 0])
+    assert client.get('/api/v1/tiles/12/2048/2048?size=33&sampling=unknown').status_code == 422
+
+    west = client.get('/api/v1/tiles/2/0/3?size=33&sampling=display').json()
+    east = client.get('/api/v1/tiles/2/3/3?size=33&sampling=display').json()
+    west_radii = np.array(west['grid']['radii_m']).reshape(33, 33)
+    east_radii = np.array(east['grid']['radii_m']).reshape(33, 33)
+    np.testing.assert_array_equal(west_radii[:, 0], east_radii[:, -1])
+    assert np.isfinite(west_radii).all() and np.isfinite(east_radii).all()
 
 
 def test_frontend_assets_are_routed_through_api(client):
