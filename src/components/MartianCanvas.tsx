@@ -172,10 +172,24 @@ export const MartianCanvas: React.FC<MartianCanvasProps> = ({
     window.addEventListener('resize', handleResize);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
-      cancelAnimationFrame(animationFrameId);
-      renderer.dispose();
-    };
+    window.removeEventListener('resize', handleResize);
+    cancelAnimationFrame(animationFrameId);
+
+    scene.traverse(object => {
+      if (object instanceof THREE.Mesh ||
+          object instanceof THREE.Line) {
+        object.geometry.dispose();
+
+        const materials = Array.isArray(object.material)
+          ? object.material
+          : [object.material];
+
+        materials.forEach(material => material.dispose());
+      }
+    });
+
+    renderer.dispose();
+  };
   }, [terrain]);
 
   // Update shaders / sensor mode
@@ -214,7 +228,7 @@ export const MartianCanvas: React.FC<MartianCanvasProps> = ({
       ? oldSun.material
       : [oldSun.material];
     materials.forEach(material => material.dispose());
-  }
+    }
     const toRemove = scene.children.filter(c => c instanceof THREE.Light);
     toRemove.forEach(l => scene.remove(l));
 
@@ -247,13 +261,12 @@ export const MartianCanvas: React.FC<MartianCanvasProps> = ({
       fog: false,
       depthWrite: false
     });
+    const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+    sunMesh.name = '__sunMesh__';
 
-const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
-sunMesh.name = '__sunMesh__';
-
-sunMesh.position.copy(sunLight.position);
-scene.add(sunMesh);
-  }
+    sunMesh.position.copy(sunLight.position);
+    scene.add(sunMesh);
+    }  
 
   function updateCameraPosition(cam: THREE.PerspectiveCamera) {
     const { radius, theta, phi } = cameraSpherical.current;
@@ -267,6 +280,13 @@ scene.add(sunMesh);
     if (meshRef.current) {
       scene.remove(meshRef.current);
       meshRef.current.geometry.dispose();
+
+      const materials = Array.isArray(meshRef.current.material)
+        ? meshRef.current.material
+        : [meshRef.current.material];
+
+      materials.forEach(material => material.dispose());
+
       meshRef.current = null;
     }
 
@@ -420,6 +440,7 @@ scene.add(sunMesh);
     if (routeLineRef.current) {
       scene.remove(routeLineRef.current);
       routeLineRef.current.geometry.dispose();
+      routeLineRef.current.material.dispose();
       routeLineRef.current = null;
     }
 
