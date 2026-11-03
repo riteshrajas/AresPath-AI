@@ -9,6 +9,23 @@ import { marsMaterial, gradeMarsColor } from './mars-material.js';
 const turbo = new URLSearchParams(location.search).get('turbo') === '1';
 globalThis.__ARESPATH_TURBO__ = turbo;
 const api = new TerrainClient(import.meta.env.VITE_API_BASE_URL || '');
+function getMarsSunPosition(lsDegrees, distance = 10000) {
+  const ls = THREE.MathUtils.degToRad(lsDegrees);
+  const obliquity = THREE.MathUtils.degToRad(25.19); // Mars axial tilt
+
+  const x = Math.cos(ls) * distance;
+  const y = Math.sin(ls) * Math.sin(obliquity) * distance;
+  const z = Math.sin(ls) * Math.cos(obliquity) * distance;
+
+  return new THREE.Vector3(x, y, z);
+}
+
+function getMarsSolarLongitude(date = new Date()) {
+  const J2000Epoch = Date.UTC(2000, 0, 1, 12, 0, 0);
+  const daysSinceJ2000 = (date.getTime() - J2000Epoch) / 86400000;
+  const lsMean = (279.40 + 0.985647 * daysSinceJ2000) % 360;
+  return lsMean < 0 ? lsMean + 360 : lsMean;
+}
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
 camera.position.set(0, 180, 1020);
@@ -19,12 +36,11 @@ renderer.toneMappingExposure = 1.05;
 renderer.setPixelRatio(Math.min(devicePixelRatio, turbo ? 1.25 : 2)); renderer.setSize(innerWidth, innerHeight);
 document.querySelector('#canvas-container').appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffffff, .85));
-const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
-const sunDirection = sun.position.clone().normalize();
+const sun = new THREE.DirectionalLight(0xffffff, 2.4); 
+scene.add(sun);
+
 const sunDistance = 10000;
-const sunRadius = sunDistance * Math.tan(
-  THREE.MathUtils.degToRad(0.35 / 2)
-);
+const sunRadius = sunDistance * Math.tan(THREE.MathUtils.degToRad(0.35 / 2));
 
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 32, 32);
 const sunMaterial = new THREE.MeshBasicMaterial({
@@ -35,9 +51,17 @@ const sunMaterial = new THREE.MeshBasicMaterial({
 
 const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
 sunMesh.name = 'visibleSun';
-sunMesh.position.copy(sunDirection).multiplyScalar(sunDistance);
-
 scene.add(sunMesh);
+
+// Function to compute and update the sun position based on real Mars data
+function updateSunPosition() {
+  // You can pass a specific Date here, or leave it blank for current real-world date
+  const currentLs = getMarsSolarLongitude(new Date()); 
+  const sunPos = getMarsSunPosition(currentLs, sunDistance);
+  
+  sun.position.copy(sunPos);
+  sunMesh.position.copy(sunPos);
+}
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
 const errorText = document.querySelector('#error');
 const loadingStatus = document.querySelector('#loading-status');
@@ -313,6 +337,22 @@ renderer.setAnimationLoop(now => {
     camera.up.lerpVectors(flight.up, flight.endUp, ease).normalize(); camera.lookAt(controls.target);
     if (t === 1) { const target = flight.endTarget; flight = null; makeControls(target); }
   } else controls.update();
+  renderer.setAnimationLoop(now => {
+  // ... your existing flight and control logic ...
+  if (flight) {
+    // ...
+  } else controls.update();
+
+  // --- ADD THIS LINE TO KEEP IT UPDATED ---
+  updateSunPosition();
+  // ----------------------------------------
+
+  // ... rest of your existing animation loop code ...
+  inspection.position.copy(camera.position); 
+  inspection.target.position.copy(controls.target);
+  // ...
+  renderer.render(scene, camera);
+});
   if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
     selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
     inspection.intensity = 0;
