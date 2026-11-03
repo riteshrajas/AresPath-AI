@@ -229,6 +229,18 @@ export const MartianCanvas: React.FC<MartianCanvasProps> = ({
     sunLight.position.set(150, 180, 120);
     sunLight.castShadow = true;
     scene.add(sunLight);
+    const sunGeometry = new THREE.SphereGeometry(5, 32, 32);
+
+    const sunMaterial = new THREE.MeshBasicMaterial({
+      color: 0xfff5cc,
+      fog: false,
+      depthWrite: false
+    });
+
+    const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+
+    sunMesh.position.copy(sunLight.position);
+    scene.add(sunMesh);
   }
 
   function updateCameraPosition(cam: THREE.PerspectiveCamera) {
