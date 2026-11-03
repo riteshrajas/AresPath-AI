@@ -20,6 +20,24 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, turbo ? 1.25 : 2)); renderer.s
 document.querySelector('#canvas-container').appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffffff, .85));
 const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
+const sunDirection = sun.position.clone().normalize();
+const sunDistance = 10000;
+const sunRadius = sunDistance * Math.tan(
+  THREE.MathUtils.degToRad(0.35 / 2)
+);
+
+const sunGeometry = new THREE.SphereGeometry(sunRadius, 32, 32);
+const sunMaterial = new THREE.MeshBasicMaterial({
+  color: 0xfff8e5,
+  fog: false,
+  toneMapped: false
+});
+
+const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+sunMesh.name = 'visibleSun';
+sunMesh.position.copy(sunDirection).multiplyScalar(sunDistance);
+
+scene.add(sunMesh);
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
 const errorText = document.querySelector('#error');
 const loadingStatus = document.querySelector('#loading-status');
