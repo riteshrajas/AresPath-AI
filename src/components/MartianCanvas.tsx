@@ -205,6 +205,16 @@ export const MartianCanvas: React.FC<MartianCanvasProps> = ({
 
   function setupLighting(scene: THREE.Scene, mode: SensorMode) {
     // Clear old lights
+    const oldSun = scene.getObjectByName('__sunMesh__');
+
+    if (oldSun instanceof THREE.Mesh) {
+      scene.remove(oldSun);
+      oldSun.geometry.dispose();
+    const materials = Array.isArray(oldSun.material)
+      ? oldSun.material
+      : [oldSun.material];
+    materials.forEach(material => material.dispose());
+  }
     const toRemove = scene.children.filter(c => c instanceof THREE.Light);
     toRemove.forEach(l => scene.remove(l));
 
@@ -229,6 +239,20 @@ export const MartianCanvas: React.FC<MartianCanvasProps> = ({
     sunLight.position.set(150, 180, 120);
     sunLight.castShadow = true;
     scene.add(sunLight);
+    // Visible Sun in the Martian sky
+    const sunGeometry = new THREE.SphereGeometry(5, 32, 32);
+
+    const sunMaterial = new THREE.MeshBasicMaterial({
+      color: 0xfff5cc,
+      fog: false,
+      depthWrite: false
+    });
+
+const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
+sunMesh.name = '__sunMesh__';
+
+sunMesh.position.copy(sunLight.position);
+scene.add(sunMesh);
   }
 
   function updateCameraPosition(cam: THREE.PerspectiveCamera) {
