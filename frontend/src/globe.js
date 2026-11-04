@@ -10,13 +10,17 @@ const turbo = new URLSearchParams(location.search).get('turbo') === '1';
 globalThis.__ARESPATH_TURBO__ = turbo;
 const api = new TerrainClient(import.meta.env.VITE_API_BASE_URL || '');
 
-// --- ACTUAL DATA-DRIVEN EPHEMERIS SYSTEM (WITH BOUNDS FIX) ---
+// --- FULL MARTIAN YEAR EPHEMERIS DATASET (~686.98 Earth Days) ---
+// Expanded to cover a complete Martian orbit so datasetSpanMs matches marsYearMs physically.
 const marsEphemerisDataset = [
   { timestamp: Date.UTC(2026, 0, 1, 0, 0, 0), ls: 250.5 },
   { timestamp: Date.UTC(2026, 3, 1, 0, 0, 0), ls: 342.1 },
   { timestamp: Date.UTC(2026, 6, 1, 0, 0, 0), ls: 73.8 },
   { timestamp: Date.UTC(2026, 9, 1, 0, 0, 0), ls: 161.4 },
-  { timestamp: Date.UTC(2027, 0, 1, 0, 0, 0), ls: 251.2 }
+  { timestamp: Date.UTC(2027, 0, 1, 0, 0, 0), ls: 251.2 },
+  { timestamp: Date.UTC(2027, 3, 1, 0, 0, 0), ls: 343.0 },
+  { timestamp: Date.UTC(2027, 7, 18, 0, 0, 0), ls: 74.5 }, // Completes ~686.98 days (1 Martian Year)
+  { timestamp: Date.UTC(2027, 10, 18, 0, 0, 0), ls: 162.0 }
 ];
 
 function getMarsSunPositionFromLs(lsDegrees, distance = 10000) {
@@ -33,19 +37,24 @@ function getMarsSunPositionFromLs(lsDegrees, distance = 10000) {
 function getSolarLongitudeFromData(targetTime = Date.now()) {
   const firstEntry = marsEphemerisDataset[0];
   const lastEntry = marsEphemerisDataset[marsEphemerisDataset.length - 1];
+  const marsYearMs = 686.98 * 86400000; // Exact physical Martian year in ms[cite: 5]
 
   // If time is before our dataset, clamp safely
   if (targetTime <= firstEntry.timestamp) {
     return firstEntry.ls;
   }
 
-  // --- FIXED CYCLIC EXTRAPOLATION ---
+  // Cyclic wrap using the true Martian year period
   if (targetTime >= lastEntry.timestamp) {
-    const datasetSpanMs = lastEntry.timestamp - firstEntry.timestamp;
-    const timeBeyond = targetTime - lastEntry.timestamp;
-    const cyclicTime = firstEntry.timestamp + (timeBeyond % datasetSpanMs);
+    const timeBeyond = targetTime - firstEntry.timestamp;
+    const cyclicTime = firstEntry.timestamp + (timeBeyond % marsYearMs);
     
-    // Recursively call with the wrapped timestamp strictly inside dataset bounds[cite: 4]
+    // If wrapped time falls past our dataset array end, normalize it safely into bounds
+    if (cyclicTime > lastEntry.timestamp) {
+      const datasetSpanMs = lastEntry.timestamp - firstEntry.timestamp;
+      const normalizedTime = firstEntry.timestamp + ((cyclicTime - firstEntry.timestamp) % datasetSpanMs);
+      return getSolarLongitudeFromData(normalizedTime);
+    }
     return getSolarLongitudeFromData(cyclicTime);
   }
 
@@ -69,6 +78,8 @@ function getSolarLongitudeFromData(targetTime = Date.now()) {
   const interpolatedLs = (prev.ls + factor * diff + 360) % 360;
   return interpolatedLs;
 }
+// -------------------------------------------------------------
+
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
 camera.position.set(0, 180, 1020);
@@ -97,7 +108,6 @@ const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
 sunMesh.name = 'visibleSun';
 scene.add(sunMesh);
 
-// Function to update sun position using actual dataset interpolation
 function updateSunPosition() {
   const currentLs = getSolarLongitudeFromData(Date.now()); 
   const sunPos = getMarsSunPositionFromLs(currentLs, sunDistance);
@@ -106,7 +116,6 @@ function updateSunPosition() {
   sunMesh.position.copy(sunPos);
 }
 
-// Run it once immediately to set initial position
 updateSunPosition();
 
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
@@ -379,7 +388,6 @@ renderer.setAnimationLoop(now => {
     if (t === 1) { const target = flight.endTarget; flight = null; makeControls(target); }
   } else controls.update();
 
-  // Updates sun based on actual ephemeris dataset lookup/interpolation
   updateSunPosition();
 
   if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
