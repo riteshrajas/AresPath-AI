@@ -34,19 +34,18 @@ function getSolarLongitudeFromData(targetTime = Date.now()) {
   const firstEntry = marsEphemerisDataset[0];
   const lastEntry = marsEphemerisDataset[marsEphemerisDataset.length - 1];
 
-  // If time is before our dataset, clamp or loop backward safely
+  // If time is before our dataset, clamp safely
   if (targetTime <= firstEntry.timestamp) {
     return firstEntry.ls;
   }
 
-  // --- CYCLIC EXTRAPOLATION FIX ---
-  // If time is beyond our dataset, instead of freezing, calculate the time delta 
-  // and wrap it cyclically using a full Martian year (~686.98 Earth days in milliseconds).
-  const marsYearMs = 686.98 * 86400000;
+  // --- FIXED CYCLIC EXTRAPOLATION ---
   if (targetTime >= lastEntry.timestamp) {
+    const datasetSpanMs = lastEntry.timestamp - firstEntry.timestamp;
     const timeBeyond = targetTime - lastEntry.timestamp;
-    const cyclicTime = firstEntry.timestamp + (timeBeyond % marsYearMs);
-    // Recursively call with the wrapped timestamp inside our dataset bounds
+    const cyclicTime = firstEntry.timestamp + (timeBeyond % datasetSpanMs);
+    
+    // Recursively call with the wrapped timestamp strictly inside dataset bounds[cite: 4]
     return getSolarLongitudeFromData(cyclicTime);
   }
 
@@ -70,7 +69,6 @@ function getSolarLongitudeFromData(targetTime = Date.now()) {
   const interpolatedLs = (prev.ls + factor * diff + 360) % 360;
   return interpolatedLs;
 }
-
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
 camera.position.set(0, 180, 1020);
