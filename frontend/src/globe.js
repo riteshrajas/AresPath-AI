@@ -31,16 +31,26 @@ function getMarsSunPositionFromLs(lsDegrees, distance = 10000) {
 }
 
 function getSolarLongitudeFromData(targetTime = Date.now()) {
-  // Clamp to dataset bounds to prevent unbounded factors
-  if (targetTime <= marsEphemerisDataset[0].timestamp) {
-    return marsEphemerisDataset[0].ls;
-  }
+  const firstEntry = marsEphemerisDataset[0];
   const lastEntry = marsEphemerisDataset[marsEphemerisDataset.length - 1];
-  if (targetTime >= lastEntry.timestamp) {
-    return lastEntry.ls;
+
+  // If time is before our dataset, clamp or loop backward safely
+  if (targetTime <= firstEntry.timestamp) {
+    return firstEntry.ls;
   }
 
-  let prev = marsEphemerisDataset[0];
+  // --- CYCLIC EXTRAPOLATION FIX ---
+  // If time is beyond our dataset, instead of freezing, calculate the time delta 
+  // and wrap it cyclically using a full Martian year (~686.98 Earth days in milliseconds).
+  const marsYearMs = 686.98 * 86400000;
+  if (targetTime >= lastEntry.timestamp) {
+    const timeBeyond = targetTime - lastEntry.timestamp;
+    const cyclicTime = firstEntry.timestamp + (timeBeyond % marsYearMs);
+    // Recursively call with the wrapped timestamp inside our dataset bounds
+    return getSolarLongitudeFromData(cyclicTime);
+  }
+
+  let prev = firstEntry;
   let next = lastEntry;
 
   for (let i = 0; i < marsEphemerisDataset.length - 1; i++) {
