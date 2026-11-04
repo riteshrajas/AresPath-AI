@@ -9,6 +9,7 @@ import { marsMaterial, gradeMarsColor } from './mars-material.js';
 const turbo = new URLSearchParams(location.search).get('turbo') === '1';
 globalThis.__ARESPATH_TURBO__ = turbo;
 const api = new TerrainClient(import.meta.env.VITE_API_BASE_URL || '');
+
 function getMarsSunPosition(lsDegrees, distance = 10000) {
   const ls = THREE.MathUtils.degToRad(lsDegrees);
   const obliquity = THREE.MathUtils.degToRad(25.19); // Mars axial tilt
@@ -23,9 +24,12 @@ function getMarsSunPosition(lsDegrees, distance = 10000) {
 function getMarsSolarLongitude(date = new Date()) {
   const J2000Epoch = Date.UTC(2000, 0, 1, 12, 0, 0);
   const daysSinceJ2000 = (date.getTime() - J2000Epoch) / 86400000;
-  const lsMean = (279.40 + 0.985647 * daysSinceJ2000) % 360;
+  
+  const marsMeanMotion = 360 / 686.98; 
+  const lsMean = (176.85 + marsMeanMotion * daysSinceJ2000) % 360;
   return lsMean < 0 ? lsMean + 360 : lsMean;
 }
+
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
 camera.position.set(0, 180, 1020);
@@ -36,6 +40,7 @@ renderer.toneMappingExposure = 1.05;
 renderer.setPixelRatio(Math.min(devicePixelRatio, turbo ? 1.25 : 2)); renderer.setSize(innerWidth, innerHeight);
 document.querySelector('#canvas-container').appendChild(renderer.domElement);
 scene.add(new THREE.AmbientLight(0xffffff, .85));
+
 const sun = new THREE.DirectionalLight(0xffffff, 2.4); 
 scene.add(sun);
 
@@ -53,15 +58,18 @@ const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
 sunMesh.name = 'visibleSun';
 scene.add(sunMesh);
 
-// Function to compute and update the sun position based on real Mars data
+// Function to compute and update the sun position using real Mars data
 function updateSunPosition() {
-  // You can pass a specific Date here, or leave it blank for current real-world date
   const currentLs = getMarsSolarLongitude(new Date()); 
   const sunPos = getMarsSunPosition(currentLs, sunDistance);
   
   sun.position.copy(sunPos);
   sunMesh.position.copy(sunPos);
 }
+
+// Run it once immediately to set initial position
+updateSunPosition();
+
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
 const errorText = document.querySelector('#error');
 const loadingStatus = document.querySelector('#loading-status');
@@ -74,21 +82,20 @@ turboToggle.addEventListener('click', () => {
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain, contextTerrain;
 let contextPending, contextLoadedKey = '', contextRequestedKey = '', contextRetryAt = 0, contextFailed = false;
-let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
+let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = '', scheduledAt = 0;
 let autoFocusPending = false, autoFocusRetryAt = 0;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 const innerMask = new THREE.Vector4(0, 0, 0, 0);
+
 function makeControls(target = new THREE.Vector3()) {
   controls?.dispose(); controls = new OrbitControls(camera, renderer.domElement);
   controls.target.copy(target); controls.enableDamping = true; controls.enablePan = false;
-  // Let explorers approach the measured surface closely enough to inspect
-  // meter-scale terrain, while the radial clearance check below still prevents
-  // the camera from entering the DEM.
   controls.minDistance = local ? 18 * SCALE : 290;
   controls.maxDistance = 6000; controls.minPolarAngle = .03;
   controls.maxPolarAngle = local ? Math.PI / 2 - .12 : Math.PI - .03; controls.update();
 }
 makeControls();
+
 function fly(position, target, up) {
   flight = { start: performance.now(), from: camera.position.clone(), target: controls.target.clone(), up: camera.up.clone(),
     to: position, endTarget: target, endUp: up }; controls.enabled = false;
@@ -145,8 +152,6 @@ async function explore(longitude, latitude, label = 'Selected location', range =
     const normal = center.clone().normalize(), lon = longitude * Math.PI / 180, lat = latitude * Math.PI / 180;
     const north = new THREE.Vector3(-Math.sin(lat) * Math.cos(lon), Math.cos(lat), Math.sin(lat) * Math.sin(lon));
     local = { longitude, latitude, label, coverage }; loadedKey = '';
-    // A small camera-aligned fill keeps the near side readable without washing
-    // out the shadows that reveal actual valley depth.
     inspection.intensity = .42;
     if (preserveView) {
       camera.up.copy(normal); makeControls(center);
@@ -158,7 +163,6 @@ async function explore(longitude, latitude, label = 'Selected location', range =
 }
 async function focusFromZoom(now) {
   if (local || flight || !baseMesh || autoFocusPending || now < autoFocusRetryAt) return;
-  // Switch before the old orbit-distance floor can block a surface approach.
   const radial = camera.position.length();
   const latitude = Math.asin(camera.position.y / radial) * 180 / Math.PI;
   const longitude = Math.atan2(-camera.position.z, camera.position.x) * 180 / Math.PI;
@@ -194,8 +198,6 @@ function followCameraTile(plan) {
   const deltaLat = Math.abs(focus.latitude - local.latitude);
   const threshold = Math.max(plan.bounds[2] - plan.bounds[0], plan.bounds[3] - plan.bounds[1]) * 0.35;
   if (Math.max(deltaLon, deltaLat) > threshold) {
-    // Camera-centric chunk backtracking: make the tile under the view primary,
-    // then rebuild the surrounding ring at the same LOD as that primary tile.
     local.longitude = focus.longitude;
     local.latitude = focus.latitude;
     loadedKey = '';
@@ -224,8 +226,6 @@ async function updateTerrain(now) {
       sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m));
     if (controller.signal.aborted || !local) return;
     const next = createTerrainSurface(data, texture, innerBaseRadius); clearTerrain();
-    // Leave the coarse globe beneath the visual collar. Masking through its
-    // outside edge exposes tiny cracks where curved edges cross coarse faces.
     terrain = next; scene.add(next.mesh); loadedKey = plan.key; setWindowMasks(data);
     errorText.textContent = '';
     setTerrainReadyStatus();
@@ -321,6 +321,7 @@ async function initialize() {
       errorText.textContent = 'Invalid location or range in link.';
   }
 }
+
 renderer.domElement.addEventListener('dblclick', event => {
   if (!baseMesh || flight) return;
   const rect = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
@@ -330,6 +331,7 @@ renderer.domElement.addEventListener('dblclick', event => {
   const p = hit.point.clone().normalize(), latitude = Math.asin(p.y) * 180 / Math.PI, longitude = Math.atan2(-p.z, p.x) * 180 / Math.PI;
   explore(longitude, latitude, 'Selected location', local ? Math.max(300, camera.position.distanceTo(controls.target) / SCALE / 2) : 100000);
 });
+
 renderer.setAnimationLoop(now => {
   if (flight) {
     const t = Math.min(1, (now - flight.start) / 850), ease = (1 - Math.cos(t * Math.PI)) / 2;
@@ -337,22 +339,10 @@ renderer.setAnimationLoop(now => {
     camera.up.lerpVectors(flight.up, flight.endUp, ease).normalize(); camera.lookAt(controls.target);
     if (t === 1) { const target = flight.endTarget; flight = null; makeControls(target); }
   } else controls.update();
-  renderer.setAnimationLoop(now => {
-  // ... your existing flight and control logic ...
-  if (flight) {
-    // ...
-  } else controls.update();
 
-  // --- ADD THIS LINE TO KEEP IT UPDATED ---
+  // Single clean call per frame
   updateSunPosition();
-  // ----------------------------------------
 
-  // ... rest of your existing animation loop code ...
-  inspection.position.copy(camera.position); 
-  inspection.target.position.copy(controls.target);
-  // ...
-  renderer.render(scene, camera);
-});
   if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
     selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
     inspection.intensity = 0;
@@ -379,5 +369,6 @@ renderer.setAnimationLoop(now => {
     : `${(rangeMeters / 1000).toFixed(1)} km view range`;
   focusFromZoom(now); updateTerrain(now); renderer.render(scene, camera);
 });
+
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 initialize().catch(error => { errorText.textContent = error.message; console.error(error); });
