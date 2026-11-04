@@ -82,7 +82,7 @@ turboToggle.addEventListener('click', () => {
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain, contextTerrain;
 let contextPending, contextLoadedKey = '', contextRequestedKey = '', contextRetryAt = 0, contextFailed = false;
-let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = '', scheduledAt = 0;
+let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
 let autoFocusPending = false, autoFocusRetryAt = 0;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 const innerMask = new THREE.Vector4(0, 0, 0, 0);
