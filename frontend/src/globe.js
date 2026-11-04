@@ -10,9 +10,7 @@ const turbo = new URLSearchParams(location.search).get('turbo') === '1';
 globalThis.__ARESPATH_TURBO__ = turbo;
 const api = new TerrainClient(import.meta.env.VITE_API_BASE_URL || '');
 
-// --- ACTUAL DATA-DRIVEN EPHEMERIS SYSTEM ---
-// Sample dataset of actual NASA/JPL-derived Mars Solar Longitude (Ls) anchor points over time
-// This replaces pure formula estimation with structured, real ephemeris data lookup.
+// --- ACTUAL DATA-DRIVEN EPHEMERIS SYSTEM (WITH BOUNDS FIX) ---
 const marsEphemerisDataset = [
   { timestamp: Date.UTC(2026, 0, 1, 0, 0, 0), ls: 250.5 },
   { timestamp: Date.UTC(2026, 3, 1, 0, 0, 0), ls: 342.1 },
@@ -33,10 +31,17 @@ function getMarsSunPositionFromLs(lsDegrees, distance = 10000) {
 }
 
 function getSolarLongitudeFromData(targetTime = Date.now()) {
-  // If a backend API endpoint exists, it can be fetched; otherwise, it interpolates 
-  // through the actual structured ephemeris dataset array to meet data-backed simulation standards[cite: 1].
+  // Clamp to dataset bounds to prevent unbounded factors
+  if (targetTime <= marsEphemerisDataset[0].timestamp) {
+    return marsEphemerisDataset[0].ls;
+  }
+  const lastEntry = marsEphemerisDataset[marsEphemerisDataset.length - 1];
+  if (targetTime >= lastEntry.timestamp) {
+    return lastEntry.ls;
+  }
+
   let prev = marsEphemerisDataset[0];
-  let next = marsEphemerisDataset[marsEphemerisDataset.length - 1];
+  let next = lastEntry;
 
   for (let i = 0; i < marsEphemerisDataset.length - 1; i++) {
     if (targetTime >= marsEphemerisDataset[i].timestamp && targetTime <= marsEphemerisDataset[i + 1].timestamp) {
@@ -46,9 +51,8 @@ function getSolarLongitudeFromData(targetTime = Date.now()) {
     }
   }
 
-  // Linear interpolation between actual data points
   const factor = (targetTime - prev.timestamp) / (next.timestamp - prev.timestamp || 1);
-  // Handle 360-degree wrapping safely
+  
   let diff = next.ls - prev.ls;
   if (diff < -180) diff += 360;
   if (diff > 180) diff -= 360;
@@ -56,7 +60,6 @@ function getSolarLongitudeFromData(targetTime = Date.now()) {
   const interpolatedLs = (prev.ls + factor * diff + 360) % 360;
   return interpolatedLs;
 }
-// -------------------------------------------
 
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
