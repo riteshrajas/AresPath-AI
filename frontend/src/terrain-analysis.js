@@ -78,8 +78,8 @@ export function analyzeTerrain(data) {
   return { metrics, quality };
 }
 
-export function attachTerrainAnalysis(geometry, data) {
-  const analysis = analyzeTerrain(data),
+export function attachTerrainAnalysis(geometry, data, precomputedAnalysis = null) {
+  const analysis = precomputedAnalysis || analyzeTerrain(data),
     count = geometry.attributes.position.count;
   const metrics = new Float32Array(count * 4),
     quality = new Float32Array(count * 2);
@@ -94,6 +94,7 @@ export function attachTerrainAnalysis(geometry, data) {
     "terrainQuality",
     new THREE.BufferAttribute(quality, 2),
   );
+  return analysis;
 }
 
 export const layerUniforms = {

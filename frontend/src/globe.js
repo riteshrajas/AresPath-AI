@@ -204,32 +204,58 @@ async function focusFromZoom(now) {
   const ground = sampleMola(radiusGrid, mola.width, mola.height, longitude, latitude, mola.offset_m);
   if (radial / SCALE - ground > 550000) return;
   const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0, 0), camera);
-  const hit = ray.intersectObject(baseMesh)[0];
+  const hit = rayToMarsGround(ray.ray);
   if (!hit) return;
-  const direction = hit.point.clone().normalize();
-  const lon = Math.atan2(-direction.z, direction.x) * 180 / Math.PI;
-  const lat = Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) * 180 / Math.PI;
   autoFocusPending = true;
-  try { await explore(lon, lat, 'Zoom location', 0, true); }
+  try { await explore(hit.longitude, hit.latitude, 'Zoom location', 0, true); }
   finally { autoFocusPending = false; autoFocusRetryAt = performance.now() + 2000; }
 }
 let groundFocusKey = '', groundFocusValue = null;
+const groundFocusRay = new THREE.Ray();
+const groundFocusSphere = new THREE.Sphere(new THREE.Vector3(), 280);
+const groundFocusHit = new THREE.Vector3();
+
+function rayToMarsGround(cameraRay) {
+  if (!radiusGrid || !mola) return null;
+  const camDist = cameraRay.origin.length();
+  const maxRadius = Math.min(camDist - 0.0001, 282.5);
+  groundFocusSphere.radius = Math.min(maxRadius, 280);
+  if (!cameraRay.intersectSphere(groundFocusSphere, groundFocusHit)) {
+    groundFocusSphere.radius = maxRadius;
+    if (!cameraRay.intersectSphere(groundFocusSphere, groundFocusHit)) return null;
+  }
+  for (let iter = 0; iter < 3; iter++) {
+    const len = groundFocusHit.length();
+    const lon = Math.atan2(-groundFocusHit.z, groundFocusHit.x) * 180 / Math.PI;
+    const lat = Math.asin(THREE.MathUtils.clamp(groundFocusHit.y / len, -1, 1)) * 180 / Math.PI;
+    let ground = sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m);
+    if (terrain) {
+      const [w, s, e, n] = terrain.data.bounds;
+      const mid = (w + e) / 2, uLon = mid + ((lon - mid + 540) % 360) - 180;
+      if (uLon >= w && uLon <= e && lat >= s && lat <= n) {
+        ground = contextRadiusAt(terrain.data, lon, lat, (lo, la) => ground);
+      }
+    }
+    groundFocusSphere.radius = Math.min(maxRadius, ground * SCALE);
+    if (!cameraRay.intersectSphere(groundFocusSphere, groundFocusHit)) break;
+  }
+  const finalLen = groundFocusHit.length();
+  return {
+    longitude: Math.atan2(-groundFocusHit.z, groundFocusHit.x) * 180 / Math.PI,
+    latitude: Math.asin(THREE.MathUtils.clamp(groundFocusHit.y / finalLen, -1, 1)) * 180 / Math.PI
+  };
+}
+
 function cameraGroundFocus() {
-  if (!baseMesh) return null;
-  const key = [baseMesh.geometry.uuid, terrain?.mesh.geometry.uuid, contextTerrain?.mesh.geometry.uuid,
-    contextTerrain?.mesh.visible, ...camera.position.toArray(), ...camera.quaternion.toArray()].join('/');
+  if (!baseMesh || !radiusGrid) return null;
+  const key = [terrain?.mesh.geometry.uuid, contextTerrain?.mesh.geometry.uuid,
+    ...camera.position.toArray(), ...camera.quaternion.toArray()].join('/');
   if (key === groundFocusKey) return groundFocusValue;
   groundFocusKey = key;
-  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0, 0), camera);
-  const objects = [terrain?.mesh, contextTerrain?.mesh.visible ? contextTerrain.mesh : null, baseMesh].filter(Boolean);
-  for (const object of objects) object.updateWorldMatrix(true, false);
-  const hit = ray.intersectObjects(objects)[0];
-  if (!hit) return groundFocusValue = null;
-  const direction = hit.point.clone().normalize();
-  return groundFocusValue = {
-    longitude: Math.atan2(-direction.z, direction.x) * 180 / Math.PI,
-    latitude: Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) * 180 / Math.PI
-  };
+  camera.updateWorldMatrix(true, false);
+  groundFocusRay.origin.copy(camera.position);
+  groundFocusRay.direction.set(0, 0, -1).applyQuaternion(camera.quaternion).normalize();
+  return groundFocusValue = rayToMarsGround(groundFocusRay);
 }
 function followCameraTile(plan) {
   // Raycasting the dense surface is expensive. A stationary camera sees the
@@ -266,7 +292,7 @@ async function updateTerrain(now) {
   try {
     const publishPartial = data => {
       if (controller.signal.aborted || !local || !data) return;
-      const next = createTerrainSurface(data, texture, innerBaseRadius); clearTerrain();
+      const next = createTerrainSurface(data, texture, innerBaseRadius, null, { fast: true }); clearTerrain();
       terrain = next; scene.add(next.mesh); setWindowMasks(data);
     };
     const data = await fetchTerrainWindow(api, plan, controller.signal, (done, total) => {
@@ -301,7 +327,8 @@ async function updateContext(plan) {
     contextFailed = false;
     if (terrain) {
       const existing = terrain.data, previousKey = loadedKey;
-      const replacement = createTerrainSurface(existing, texture, innerBaseRadius);
+      const cached = { occlusion: terrain.occlusion, analysis: terrain.analysis };
+      const replacement = createTerrainSurface(existing, texture, innerBaseRadius, null, cached);
       scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); terrain.mesh.material.dispose();
       terrain = replacement; scene.add(replacement.mesh); loadedKey = previousKey; setWindowMasks(existing);
     } else mask.set(...data.bounds);
@@ -330,17 +357,6 @@ async function initialize() {
   attachTerrainAnalysis(geometry, { rows: 361, cols: 721, bounds: [-180,-90,180,90], radii: globeRadii,
     heights: Float64Array.from(globeRadii, radius => radius - mola.offset_m), resolution: 14818 });
   baseRadiusAt = (longitude, latitude) => {
-    longitude = ((longitude + 180) % 360 + 360) % 360 - 180;
-    const column = Math.floor((longitude + 180) * 2), row = Math.floor((90 - latitude) * 2);
-    const direction = vector(planetPoint(longitude, latitude, 1)).normalize(), ray = new THREE.Ray(new THREE.Vector3(), direction);
-    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), hit = new THREE.Vector3();
-    for (let y = Math.max(0, row - 1); y <= Math.min(359, row + 1); y++) for (let x = Math.max(0, column - 1); x <= Math.min(719, column + 1); x++) {
-      const tl = y * 721 + x, tr = tl + 1, bl = tl + 721, br = bl + 1;
-      for (const indices of [[tr, tl, br], [tl, bl, br]]) {
-        a.fromBufferAttribute(position, indices[0]); b.fromBufferAttribute(position, indices[1]); c.fromBufferAttribute(position, indices[2]);
-        if (ray.intersectTriangle(a, b, c, false, hit)) return hit.length() / SCALE;
-      }
-    }
     return sampleMola(radiusGrid, mola.width, mola.height, longitude, latitude, mola.offset_m);
   };
   texture = await new THREE.TextureLoader().loadAsync(api.base + '/api/v1/basemaps/mars-color');
@@ -379,10 +395,9 @@ renderer.domElement.addEventListener('dblclick', event => {
   if (!baseMesh || flight || cinematic.active) return;
   const rect = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
   ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
-  const hit = ray.intersectObjects(terrain ? [terrain.mesh, baseMesh] : [baseMesh])[0];
+  const hit = rayToMarsGround(ray.ray);
   if (!hit) return;
-  const p = hit.point.clone().normalize(), latitude = Math.asin(p.y) * 180 / Math.PI, longitude = Math.atan2(-p.z, p.x) * 180 / Math.PI;
-  explore(longitude, latitude, 'Selected location', local ? Math.max(300, camera.position.distanceTo(controls.target) / SCALE / 2) : 100000);
+  explore(hit.longitude, hit.latitude, 'Selected location', local ? Math.max(300, camera.position.distanceTo(controls.target) / SCALE / 2) : 100000);
 });
 renderer.setAnimationLoop(now => {
   navigation.beginFrame(now);
