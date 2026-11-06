@@ -6,7 +6,7 @@ import rasterio
 from fastapi.testclient import TestClient
 
 from backend.app.main import create_app
-from backend.app.terrain import tile_bounds, contains, sample_native_cells, sample_global_display_cells
+from backend.app.terrain import tile_bounds, contains, geodetic_crs, sample_native_cells, sample_global_display_cells
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -83,7 +83,7 @@ def test_real_native_height_and_provenance(client):
     with rasterio.open(ROOT/'data/verified_terrain/gale/elevation.tif') as ds:
         x,y=ds.xy(ds.height//2,ds.width//2)
         from rasterio.warp import transform
-        lon,lat=transform(ds.crs,ds.crs.geodetic_crs,[x],[y])
+        lon,lat=transform(ds.crs,geodetic_crs(ds.crs),[x],[y])
         expected=float(ds.read(1)[ds.height//2,ds.width//2])
     result=client.get('/api/v1/coverage',params={'longitude':lon[0],'latitude':lat[0]}).json()
     assert result['selected_source']['id']==2

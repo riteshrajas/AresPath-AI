@@ -328,6 +328,17 @@ export function createViewFilters({
     "Approximate scale at the center of the view; hides when aimed at sky.",
   );
   toggle(
+    "compass",
+    "overlays",
+    "Compass / north reference",
+    "Heading indicator in navigation controls; click N to face north.",
+    true,
+    (value) => {
+      const compass = document.querySelector(".compass-heading");
+      if (compass) compass.hidden = !value;
+    },
+  );
+  toggle(
     "data-info",
     "quality",
     "Visible source information",
@@ -598,11 +609,46 @@ export function createViewFilters({
       if (query && count) section.open = true;
       visible += count;
       if (id === "places") {
-        if (places) places.element.hidden = !!query;
-        pinEditor.hidden = !!query;
+        if (places)
+          places.element.hidden = !!query && fields.get("places").row.hidden;
+        pinEditor.hidden = !!query && fields.get("saved-places").row.hidden;
       }
     }
     panel.querySelector(".filters-empty").hidden = visible > 0;
+  }
+  function updateDataInfo() {
+    dataInfo.hidden = !registry.get("data-info");
+    if (dataInfo.hidden) return;
+    const data = getTerrain()?.data;
+    dataInfo.replaceChildren();
+    const heading = document.createElement("strong");
+    heading.textContent = "VISIBLE TERRAIN DATA";
+    dataInfo.appendChild(heading);
+    const displaySpacing = data
+      ? Math.round(
+          ((((data.bounds[3] - data.bounds[1]) * Math.PI) / 180) * 3396000) /
+            Math.max(1, data.rows - 1),
+        )
+      : 29600;
+    const lines = data
+      ? [
+          ...(data.sourceMetadata || []).map(
+            (source) =>
+              `${source.name} · ${Number(source.prepared_resolution_m).toLocaleString()} m prepared pixels`,
+          ),
+          `${data.cols} × ${data.rows} display samples · ~${displaySpacing.toLocaleString()} m north–south spacing`,
+          "Coarse fallback and interpolated samples do not add high-resolution measurements.",
+          "Unloaded areas and display collars are not measured local detail.",
+        ]
+      : [
+          "MOLA overview · ~14.8 km source pixels · ~29.6 km display spacing",
+          "Radius relative to a 3,396 km sphere. Coarse global overview only; zoom in for local source data.",
+        ];
+    for (const text of lines) {
+      const p = document.createElement("p");
+      p.textContent = text;
+      dataInfo.appendChild(p);
+    }
   }
   function render() {
     const list = registry.list();
@@ -725,6 +771,7 @@ export function createViewFilters({
       chips.appendChild(chip);
     }
     updateLegend();
+    updateDataInfo();
     annotations.refresh();
     search();
   }
@@ -892,31 +939,7 @@ export function createViewFilters({
       if (terrain !== lastTerrain) {
         lastTerrain = terrain;
         updateLegend();
-      }
-      if (registry.get("data-info")) {
-        const data = terrain?.data;
-        dataInfo.replaceChildren();
-        const heading = document.createElement("strong");
-        heading.textContent = "VISIBLE TERRAIN DATA";
-        dataInfo.appendChild(heading);
-        const lines = data
-          ? [
-              ...(data.sourceMetadata || []).map(
-                (source) =>
-                  `${source.name} · ${Number(source.prepared_resolution_m).toLocaleString()} m prepared pixels`,
-              ),
-              `${data.cols} × ${data.rows} display samples · ~${Math.round(((((data.bounds[3] - data.bounds[1]) * Math.PI) / 180) * 3396000) / (data.rows - 1)).toLocaleString()} m north–south spacing`,
-              "Unloaded areas and display collars are not measured local detail.",
-            ]
-          : [
-              "MOLA overview · ~14.8 km source pixels · ~29.6 km display spacing",
-              "Radius relative to a 3,396 km sphere. Zoom in for local source data.",
-            ];
-        for (const text of lines) {
-          const p = document.createElement("p");
-          p.textContent = text;
-          dataInfo.appendChild(p);
-        }
+        updateDataInfo();
       }
     },
   };

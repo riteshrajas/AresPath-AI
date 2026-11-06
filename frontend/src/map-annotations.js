@@ -175,7 +175,8 @@ export function createMapAnnotations({
           addMarker(position, "➤", "route-arrow", next);
         }
       if (registry.get("route-corridor") && scene) {
-        const [west, south, east, north] = result.grid.bounds,
+        const [west, south, rawEast, north] = result.grid.bounds,
+          east = rawEast < west ? rawEast + 360 : rawEast,
           points = [];
         const corners = [
           [west, south],
@@ -234,11 +235,13 @@ export function createMapAnnotations({
         state?.selectedRoute !== previousSelected
       )
         rebuild(state);
-      altitude.hidden = !registry.get("camera-altitude");
+      altitude.hidden = true;
       scale.hidden = true;
-      if (registry.get("scale-bar")) {
-        const focus = getFocus(),
-          radius = focus && getRadius(focus.longitude, focus.latitude);
+      const showScale = registry.get("scale-bar"),
+        showAltitude = registry.get("camera-altitude"),
+        focus = (showScale || showAltitude) ? getFocus() : null;
+      if (showScale && focus) {
+        const radius = getRadius(focus.longitude, focus.latitude);
         if (radius) {
           scaleSphere.radius = radius * SCALE;
           scaleRay.setFromCamera(
@@ -265,17 +268,18 @@ export function createMapAnnotations({
           }
         }
       }
-      if (!altitude.hidden) {
-        const radius = camera.position.length() / SCALE,
+      if (showAltitude && focus) {
+        const camLength = camera.position.length(),
+          radius = camLength / SCALE,
           latitude =
-            (Math.asin(camera.position.y / camera.position.length()) * 180) /
-            Math.PI,
+            (Math.asin(camera.position.y / camLength) * 180) / Math.PI,
           longitude =
             (Math.atan2(-camera.position.z, camera.position.x) * 180) / Math.PI;
         const ground = getRadius(longitude, latitude);
-        altitude.value = ground
-          ? `${formatDistance(Math.max(0, radius - ground))} above sampled terrain`
-          : "Loading altitude…";
+        if (Number.isFinite(ground) && ground > 0) {
+          altitude.hidden = false;
+          altitude.value = `${formatDistance(Math.max(0, radius - ground))} above sampled terrain`;
+        }
       }
       for (const marker of markers) {
         const point = marker.point,

@@ -34,7 +34,8 @@ export function buildRouteProfile(route) {
 }
 
 export function profileAt(profile, fraction) {
-  const distance = Math.max(0, Math.min(1, fraction)) * profile.total;
+  const clamped = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
+  const distance = clamped * profile.total;
   let low = 0,
     high = profile.samples.length - 1;
   while (low + 1 < high) {
@@ -45,7 +46,15 @@ export function profileAt(profile, fraction) {
   const a = profile.samples[low],
     b = profile.samples[high],
     t = (distance - a.distance) / Math.max(1e-9, b.distance - a.distance);
-  return { distance, height: a.height + (b.height - a.height) * t };
+  const deltaLon = ((b.point[0] - a.point[0] + 540) % 360) - 180;
+  const longitude = ((a.point[0] + deltaLon * t + 540) % 360) - 180;
+  return {
+    distance,
+    height: a.height + (b.height - a.height) * t,
+    longitude: longitude || 0,
+    latitude: a.point[1] + (b.point[1] - a.point[1]) * t,
+    radius: a.point[2] + (b.point[2] - a.point[2]) * t,
+  };
 }
 
 export const formatDistance = (value) =>

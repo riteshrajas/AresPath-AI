@@ -11,6 +11,8 @@ export function analyzeTerrain(data) {
     (data.sourceMetadata || []).map((source) => [source.id, source]),
   );
   const rad = Math.PI / 180;
+  const spanLon =
+    bounds[2] >= bounds[0] ? bounds[2] - bounds[0] : bounds[2] - bounds[0] + 360;
   const valid = (i) =>
     (!measured || measured[i]) && Number.isFinite(heights[i]);
   for (let y = 0; y < rows; y++)
@@ -24,10 +26,7 @@ export function analyzeTerrain(data) {
         (bounds[3] - ((bounds[3] - bounds[1]) * y) / (rows - 1)) * rad;
       const dx = Math.max(
         0.01,
-        Math.abs(
-          ((bounds[2] - bounds[0]) * rad * radii[i] * Math.cos(latitude)) /
-            (cols - 1),
-        ),
+        Math.abs((spanLon * rad * radii[i] * Math.cos(latitude)) / (cols - 1)),
       );
       const dy = Math.max(
         0.01,

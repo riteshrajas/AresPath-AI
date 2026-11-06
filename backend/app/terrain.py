@@ -14,6 +14,22 @@ from rasterio.windows import Window
 SCHEME = 'mars-equirectangular-v1'
 
 
+def geodetic_crs(crs):
+    if hasattr(crs, 'geodetic_crs'):
+        return crs.geodetic_crs
+    wkt = crs.to_wkt()
+    start = wkt.find('GEOGCS[')
+    if start < 0:
+        return crs
+    depth = 0
+    for index in range(wkt.find('[', start), len(wkt)):
+        depth += (wkt[index] == '[') - (wkt[index] == ']')
+        if depth == 0:
+            return rasterio.crs.CRS.from_wkt(wkt[start:index + 1])
+    return crs
+
+
+
 def sample_native_cells(dataset, x, y):
     """Sample the same nearest cells as rasterio.sample, grouped by raster block.
 
@@ -116,7 +132,7 @@ class TerrainStore:
             metadata = self._json(path/'manifest.json')
             with rasterio.open(path/'elevation.tif') as dataset:
                 left, bottom, right, top = dataset.bounds
-                longitude, latitude = transform(dataset.crs, dataset.crs.geodetic_crs,
+                longitude, latitude = transform(dataset.crs, geodetic_crs(dataset.crs),
                                                  [left, right], [bottom, top])
             self.datasets.append({'id': identifier, 'path': path, 'source_id': source_id,
                                   'attribution_source_ids':entry.get('attribution_source_ids'),
@@ -164,7 +180,7 @@ class TerrainStore:
             if not selected.size:
                 continue
             with rasterio.open(item['path']/'elevation.tif') as dataset:
-                xx, yy = transform(dataset.crs.geodetic_crs, dataset.crs, longitude[selected], latitude[selected])
+                xx, yy = transform(geodetic_crs(dataset.crs), dataset.crs, longitude[selected], latitude[selected])
                 values = (sample_global_display_cells(dataset, xx, yy)
                           if display and item['id'] == 'global-200m'
                           else sample_native_cells(dataset, xx, yy))

@@ -1,7 +1,12 @@
 export const VIEW_PRESETS = [
   {
     name: "Clean",
-    values: { places: false, "route-lines": false, "route-endpoints": false },
+    values: {
+      places: false,
+      "route-lines": false,
+      "route-endpoints": false,
+      compass: false,
+    },
   },
   {
     name: "Explore",
@@ -11,6 +16,7 @@ export const VIEW_PRESETS = [
       "saved-places": true,
       "scale-bar": true,
       "camera-altitude": true,
+      compass: true,
     },
   },
   {
@@ -52,6 +58,7 @@ export const VIEW_PRESETS = [
       places: false,
       "route-lines": false,
       "route-endpoints": false,
+      compass: false,
       exposure: 1.1,
       contrast: 1.1,
       saturation: 0.9,
@@ -72,12 +79,15 @@ export function loadLocalList(storage, key, validate, limit = 20) {
   }
 }
 export const validPin = (pin) =>
-  pin &&
-  typeof pin.name === "string" &&
-  pin.name.length <= 80 &&
-  Number.isFinite(pin.longitude) &&
-  pin.longitude >= -180 &&
-  pin.longitude <= 180 &&
-  Number.isFinite(pin.latitude) &&
-  pin.latitude >= -90 &&
-  pin.latitude <= 90;
+  Boolean(
+    pin &&
+      typeof pin.name === "string" &&
+      pin.name.trim().length > 0 &&
+      pin.name.length <= 80 &&
+      Number.isFinite(pin.longitude) &&
+      pin.longitude >= -180 &&
+      pin.longitude <= 180 &&
+      Number.isFinite(pin.latitude) &&
+      pin.latitude >= -90 &&
+      pin.latitude <= 90,
+  );

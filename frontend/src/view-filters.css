@@ -360,6 +360,7 @@
 .route-profile[hidden],
 .map-marker[hidden],
 .camera-altitude[hidden],
+.compass-heading[hidden],
 .route-profile [hidden] {
   display: none;
 }

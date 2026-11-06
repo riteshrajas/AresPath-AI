@@ -24,7 +24,7 @@ tile window, not a full planetary quadtree. The broader mission
 capabilities described below are aspirations, not verified implemented features.
 
 **Interactive exploration:** The globe now includes drag-based look/movement
-controls, a searchable 32-control filter library with saved views and pins,
+controls, a searchable 33-control filter library with saved views and pins,
 terrain heatmaps/contours and route elevation profiles, an offline catalog of
 2,051 official Mars landmarks,
 and location search. [Terrain route planning](docs/ROUTING.md) compares safest,

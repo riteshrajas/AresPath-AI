@@ -140,7 +140,7 @@ export function createRoutePlanner({ scene, apiBase, getFocus, getPlaces, onView
   return { getState: () => ({result:currentResult,selectedRoute}), update() {
     for (const line of lines) {
       line.material.resolution.set(innerWidth, innerHeight);
-      line.visible = (filters?.get('route-lines') ?? true) && (filters?.get('all-routes') || line.userData.route === selectedRoute);
+      line.visible = Boolean(filters?.get('all-routes') || ((filters?.get('route-lines') ?? true) && line.userData.route === selectedRoute));
       line.material.opacity = line.userData.route === selectedRoute ? .95 : .5;
     }
   }, setEndpoint };
