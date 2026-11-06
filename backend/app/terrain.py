@@ -133,7 +133,12 @@ class TerrainStore:
                 continue
             metadata = self._json(path/'manifest.json')
             elevation_ds = rasterio.open(path/'elevation.tif')
-            attribution_ds = rasterio.open(path/'source_index.tif') if (path/'source_index.tif').exists() else None
+            try:
+                attribution_ds = rasterio.open(path/'source_index.tif') if (path/'source_index.tif').exists() else None
+            except Exception:
+                elevation_ds.close()
+                raise
+
             left, bottom, right, top = elevation_ds.bounds
             longitude, latitude = transform(elevation_ds.crs, geodetic_crs(elevation_ds.crs),
                                              [left, right], [bottom, top])
