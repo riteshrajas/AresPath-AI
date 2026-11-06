@@ -65,7 +65,8 @@ export function createCinematicReplay({api,renderer,camera,getGlobe,onBegin,onWi
       const catalog=await api.json('/api/v1/catalog',signal);check(current);
       if(catalog.revision!==result.revision)throw Error('Terrain data changed. Recalculate your route before replaying it.');
       const estimate=await navigator.storage?.estimate?.();check(current);
-      const required=plan.windows.size*17000000+plan.tiles.size*800000;
+      // Fine/context snapshots include the six analysis attributes per vertex.
+      const required=plan.windows.size*24000000+plan.tiles.size*800000;
       if(estimate?.quota && estimate.quota-estimate.usage<required)throw Error(`Not enough browser storage for this HD corridor (about ${Math.ceil(required/1e6)} MB). Choose a shorter route or free storage.`);
       current.cache=await replayCache(`arespath-cinematic-${Date.now()}-${current.id}`);check(current);
       current.worker=new Worker(new URL('./cinematic-worker.js',import.meta.url),{type:'module'});

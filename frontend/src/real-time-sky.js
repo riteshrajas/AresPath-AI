@@ -79,7 +79,8 @@ export function createRealTimeSky(scene, camera, sun, ambient, inspection, apiBa
     if (enabled) { savedInspection=inspection.intensity; last=0; refresh(); }
     else { inspection.intensity=savedInspection; button.textContent='RT'; }
   });
-  return { update() {
+  let starsEnabled = true;
+  return { setStarsEnabled(value) { starsEnabled = value; }, update() {
     group.visible=enabled && !!sunlight;
     if (caption.hidden === group.visible) caption.hidden=!group.visible;
     if (enabled && Date.now()-last>60000 && !busy) refresh();
@@ -88,7 +89,7 @@ export function createRealTimeSky(scene, camera, sun, ambient, inspection, apiBa
       ambient.intensity=.08; inspection.intensity=0;
       // Educational overlay: keep real catalog directions visible in daylight.
       // Terrain still occludes stars below the geometric horizon.
-      if (stars) stars.material.opacity=1;
+      if (stars) { stars.material.opacity=1; stars.visible=starsEnabled; }
     } else { sun.position.copy(originalSun); ambient.intensity=originalAmbient; }
   }};
 }

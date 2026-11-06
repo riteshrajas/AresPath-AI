@@ -51,6 +51,8 @@ def corridor(start, end, detail='standard'):
     start_index = (int(np.argmin(abs(ys))), int(np.argmin(abs(xs))))
     end_index = (int(np.argmin(abs(ys-ey))), int(np.argmin(abs(xs-ex))))
     return dict(xs=xs, ys=ys, longitude=(longitude+180)%360-180, latitude=latitude,
+                bounds=[float(lon0+xs.min()/metres_lon),float(lat0+ys.min()/metres_lat),
+                        float(lon0+xs.max()/metres_lon),float(lat0+ys.max()/metres_lat)],
                 start=start_index, end=end_index, spacing=spacing, direct_distance_m=distance)
 
 def terrain_metrics(heights, xs, ys):
@@ -110,6 +112,7 @@ def summarize(path, grid, heights, radii, sources, slope, roughness):
         descent_m=round(float(np.maximum(-dz,0).sum()), 2), max_slope_deg=round(float(max(np.max(slope[y,x]), np.max(edges, initial=0))), 2),
         mean_slope_deg=round(float(np.mean(slope[y,x])), 2), max_roughness_m=round(float(np.max(roughness[y,x])), 2),
         source_ids=[int(s) for s in np.unique(sources[y,x])],
+        heights_m=[round(float(heights[yy,xx]),3) for yy,xx in path],
         points=[[round(float(grid['longitude'][yy,xx]),7), round(float(grid['latitude'][yy,xx]),7), round(float(radii[yy,xx]),3)] for yy,xx in path])
 
 def plan_routes(store, request, cancel, report):
@@ -152,7 +155,7 @@ def plan_routes(store, request, cancel, report):
         warnings.extend(f'{source["name"]}: {limitation}' for limitation in source.get('limitations', []))
     return dict(routes=routes, revision=store.revision, sources=metadata, warnings=warnings,
         grid=dict(rows=shape[0], cols=shape[1], spacing_m=round(grid['spacing'],2), cells=count,
-            bounds=[float(grid['longitude'].min()),float(grid['latitude'].min()),float(grid['longitude'].max()),float(grid['latitude'].max())]),
+            bounds=grid['bounds']),
         direct_distance_m=grid['direct_distance_m'], elapsed_seconds=round(time.monotonic()-start, 2),
         start=request['start'], destination=request['destination'])
 

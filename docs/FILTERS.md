@@ -1,10 +1,68 @@
 # Filters and overlays
 
-The Filters button opens display controls organized into Map overlays, Visual
-effects and Places. Coordinate readout, crosshair, exposure, contrast, saturation
-and terrain wireframe work now. Places has official USGS/IAU landmark search,
-category filters, collision-limited map labels and fly-to-center selection. Saved
-locations remains Planned until bookmark storage and UI are implemented.
+The Filters button opens a searchable layer library with collapsible Terrain,
+Routes, Coordinates, Data quality, Lighting, Places and Future science groups.
+Active-setting chips reset individual preferences. Clear overlays removes map
+annotations and analytical coloring; Reset restores all defaults. Six built-in
+presets (Clean, Explore, Terrain study, Route planning, Data quality, Cinematic)
+start from defaults, so previously enabled settings cannot leak into a preset.
+Up to 20 named custom presets can be saved, replaced by name, and removed.
+
+The surface selector offers natural imagery, elevation colors, slope, local
+roughness, source resolution, loaded-data coverage and shaded relief. Contours,
+steep-slope highlighting, source transition edges, a geographic grid and wireframe
+can be combined with it. Exposure, contrast, saturation, imagery, cast shadows,
+exploration light direction/elevation and RT star visibility are adjustable.
+Real-time sky overrides the illustrative exploration light; Terrain lighting in
+the header must be on for local cast shadows and the exploration light controls.
+
+Route layers include selected/all paths, endpoint labels, direction arrows,
+distance markers, the planning corridor and a scrubbable elevation profile.
+These are display preferences: hiding a layer or changing the pink slope
+threshold never changes route constraints or recalculates a path. The profile
+uses the route API's `heights_m` array, separate from planetary radii. Legacy
+results explicitly show radial change from start instead. A profile cursor shows
+the inspected point on the map. Unavailable routes have no fabricated profile.
+
+Saved pins support naming the view-center point, fly-to, deletion, and optional
+map labels (up to 50). Pins and presets use `arespath.pins.v1` and
+`arespath.presets.v1` in localStorage. Storage failure leaves session-only entries
+with a visible explanation. Coordinates, approximate camera altitude and an
+approximate view-center scale bar are also available. Reference lines follow
+the surface shader; the scale bar uses two rays on a sphere at the center's
+sampled radius and hides if those rays cannot intersect it.
+
+## Interpretation and performance
+
+Analysis attributes are baked once per incoming mesh, including worker-prepared
+cinematic geometry; preference changes update shared uniforms. There is no new
+full-screen render pass or ray tracing. Source fields are not modified. Slope
+uses finite differences in metres, and roughness is the absolute difference
+from the available same-source 3 × 3 neighborhood mean. These describe the
+displayed DEM grid, not individual rocks, sand, traction or verified safety.
+
+Neighbor samples from another source or an unloaded tile are excluded. Source
+transitions, unavailable samples and display-only collars are gray in analytical
+color layers; contours and steep highlights are suppressed there. Optional
+magenta marks source transitions. Resolution colors use prepared source pixel
+size, not displayed vertex spacing; the information card lists both separately.
+The coverage view classifies loaded samples by source resolution, not imagery
+coverage or instrument attribution. Contours fade when too dense on screen.
+
+The global overview uses a 720 × 360 mesh over the 1440 × 720 MOLA grid:
+approximately 29.6 km display spacing vs 14.8 km source spacing at the equator.
+Its heights are radii relative to the 3,396 km reference sphere. Local source
+heights use the source areoid datum. Legends label this distinction; global
+and local contours should not be interpreted as one continuous elevation datum.
+The source-info card describes the fine loaded window, not every visible pixel.
+
+Map annotations are bounded and updated at 20 Hz; readouts update at 5 Hz.
+Route geometries are reused until the result or relevant preferences change.
+DOM markers use spherical horizon culling, not per-label fine DEM raycasts, so
+they are approximate annotations and may remain visible behind local ridges.
+Replay hides the analytical HUD while retaining the chosen surface appearance.
+The compact source card is hidden on narrow phones; source details remain in
+the route results and legends. No additional runtime dependency was added.
 
 Preferences use the versioned `arespath.filters.v1` localStorage key. Missing,
 malformed or inaccessible storage falls back to defaults. Reset filters restores
@@ -28,7 +86,7 @@ registrations. IDs must be unique and stable for persisted preferences.
 viewFilters.registry.register({
   id: 'my-overlay',
   group: 'overlays', // overlays, effects, places, or a new group
-  type: 'toggle',   // toggle or range
+  type: 'toggle',   // toggle, range, or select
   label: 'My overlay',
   description: 'Explain what this changes for an explorer.',
   default: false,
@@ -69,7 +127,11 @@ for every feature type. Naming origin is explicitly labeled; it is not a geology
 summary. The website makes no upstream requests to search or view the catalog.
 
 Official landing sites/rover traverses and personal bookmarks remain separate
-future layers. Implement saved locations before enabling that planned definition.
+datasets: bookmarks are implemented locally; landing sites and traverses are
+disabled until official mission data is curated. Geological units, dune/sand
+maps, thermal inertia, ice evidence, and dated dust/weather products have
+disabled, searchable extension slots explaining their data requirements.
+Do not enable them by relabeling procedural effects or terrain roughness.
 
 The panel and registry are created once for the lifetime of this viewer page.
 An application that mounts multiple viewers should add teardown for its DOM,

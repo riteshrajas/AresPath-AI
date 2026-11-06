@@ -39,6 +39,7 @@ def test_corridor_preserves_exact_endpoints_and_wraps_the_dateline():
     assert grid['longitude'][a] == pytest.approx(start['longitude'])
     assert grid['longitude'][b] == pytest.approx(end['longitude'])
     assert grid['latitude'][b] == pytest.approx(end['latitude'])
+    assert grid['bounds'][2] - grid['bounds'][0] < .1
     with pytest.raises(ValueError,match='10 meters'):corridor(start,start)
     with pytest.raises(ValueError,match='1,500'):corridor(dict(longitude=0,latitude=0),dict(longitude=100,latitude=0))
 
@@ -66,6 +67,8 @@ def test_jobs_complete_with_real_comparisons_and_validation():
         assert result['routes'][1]['same_as']=='safest'
         assert result['routes'][0]['points'][0][:2]==[0.,0.]
         assert result['routes'][0]['points'][-1][:2]==[.01,.01]
+        assert len(result['routes'][0]['heights_m']) == len(result['routes'][0]['points'])
+        assert set(result['routes'][0]['heights_m']) == {0.}
         assert result['revision']=='test-revision'
         assert any('oversamples' in warning for warning in result['warnings'])
         assert client.get('/api/v1/routes/missing').status_code==404

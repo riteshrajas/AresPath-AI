@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SCALE, planetPoint, terrainIndices } from './globe-math.js';
 import { marsMaterial } from './mars-material.js';
 import { terrainOcclusion, applyTerrainLighting } from './terrain-lighting.js';
+import { attachTerrainAnalysis } from './terrain-analysis.js';
 
 export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = null) {
   const { rows, cols, bounds, radii, heights, measured } = data;
@@ -58,6 +59,7 @@ export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = nu
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setAttribute('terrainAO', new THREE.Float32BufferAttribute(occlusion, 1));
   geometry.setIndex(indices); geometry.computeVertexNormals();
+  attachTerrainAnalysis(geometry, data);
   // Use the same basemap and grade as the globe at every zoom. Elevation still
   // shapes the geometry; it no longer recolors each window into a tan palette.
   const material = marsMaterial(texture, THREE.DoubleSide); material.vertexColors = true;

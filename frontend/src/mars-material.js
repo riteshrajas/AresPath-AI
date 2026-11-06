@@ -1,8 +1,10 @@
 import * as THREE from 'three';
+import { applyAnalysisShader } from './terrain-analysis.js';
 
 // Artistic display grading in linear light, after sRGB decoding. The image
 // controls the large-scale pattern; this is not calibrated true color.
 export function gradeMarsColor(shader) {
+  applyAnalysisShader(shader);
   shader.fragmentShader = shader.fragmentShader.replace('void main() {', `
     float marsHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
     float marsNoise(vec2 p){

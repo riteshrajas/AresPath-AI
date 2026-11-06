@@ -9,7 +9,7 @@ import './route-planner.css';
 
 const profiles = { safest: { label: 'Safest', color: '#8ee2b0', description: 'Prioritizes gentler slopes and lower local relief; may be longer.' }, balanced: { label: 'Balanced', color: '#edc17f', description: 'Trades travel distance against slope and local relief.' }, shortest: { label: 'Shortest', color: '#98caff', description: 'Minimizes sampled travel distance within the slope limit.' } };
 const distanceText = value => value < 1000 ? `${Math.round(value)} m` : `${(value/1000).toFixed(2)} km`;
-export function createRoutePlanner({ scene, apiBase, getFocus, getPlaces, onView, onReplay, onReplayCancel }) {
+export function createRoutePlanner({ scene, apiBase, getFocus, getPlaces, onView, onReplay, onReplayCancel, filters }) {
   const trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'turbo-toggle'; trigger.textContent = 'Routes'; trigger.setAttribute('aria-expanded', 'false'); trigger.setAttribute('aria-controls', 'route-planner'); document.querySelector('header').appendChild(trigger);
   const panel = document.createElement('section'); panel.id = 'route-planner'; panel.className = 'route-planner'; panel.hidden = true; panel.setAttribute('aria-label', 'Terrain route planner');
   panel.innerHTML = `<div class="routes-heading"><div><small>TERRAIN ANALYSIS</small><h2>Plan a surface route</h2></div><button type="button" aria-label="Close route planner" class="routes-close">×</button></div><div class="routes-body"><p class="routes-intro">Choose two places or aim the crosshair at terrain. Compare three routes using prepared elevation data.</p><div class="route-endpoints"></div><button type="button" class="route-swap">Swap start and destination ⇅</button><label class="route-setting">Analysis detail<select class="route-detail"><option value="standard">Standard · up to ~60,000 cells</option><option value="detailed">Detailed · up to ~210,000 cells</option></select></label><label class="route-setting">Maximum slope (degrees)<input class="route-slope" type="number" min="1" max="35" step="1" value="25"></label><p class="route-help">Safest caps slopes at 12°, balanced at 20°, shortest at 25°. Your setting can lower these limits. Regional legs up to 1,500 km, away from the poles.</p><div class="route-actions"><button type="button" class="route-calculate">Analyze terrain &amp; compare routes</button><button type="button" class="route-cancel" hidden>Cancel</button></div><progress class="route-progress" max="100" value="0" hidden></progress><p class="route-status" role="status" aria-live="polite">Choose a start and destination.</p><div class="route-results"></div><div class="route-analysis"></div><p class="route-caution">Terrain estimates only. Elevation data can miss rocks, sand and small bumps. “Safest” means lowest modeled terrain risk, not verified rover safety.</p></div>`;
@@ -17,7 +17,7 @@ export function createRoutePlanner({ scene, apiBase, getFocus, getPlaces, onView
   const status = panel.querySelector('.route-status'), calculate = panel.querySelector('.route-calculate'), cancelButton = panel.querySelector('.route-cancel'), progress = panel.querySelector('progress');
   const results = panel.querySelector('.route-results'), analysis = panel.querySelector('.route-analysis');
   const fields = {}, endpoints = { start: null, destination: null }, lines = [];
-  let busy = false, jobId, generation = 0, selectedRoute;
+  let busy = false, jobId, generation = 0, selectedRoute, currentResult;
   const crosshair = document.createElement('div'); crosshair.className = 'view-crosshair route-crosshair'; crosshair.hidden = true; document.body.appendChild(crosshair);
   const hidePanel = () => { panel.hidden = true; trigger.setAttribute('aria-expanded', 'false'); crosshair.hidden = true; trigger.focus(); };
   trigger.addEventListener('click', () => {
@@ -28,7 +28,7 @@ export function createRoutePlanner({ scene, apiBase, getFocus, getPlaces, onView
   panel.querySelector('.routes-close').addEventListener('click', hidePanel);
   panel.addEventListener('keydown', event => { if (event.key === 'Escape') { event.stopPropagation(); hidePanel(); } });
   function clearLines() { for (const line of lines) { scene.remove(line); line.geometry.dispose(); line.material.dispose(); } lines.length = 0; }
-  function clearResults() { clearLines(); results.replaceChildren(); analysis.replaceChildren(); }
+  function clearResults() { clearLines(); currentResult=null; selectedRoute=null; results.replaceChildren(); analysis.replaceChildren(); }
   function invalidate() { onReplayCancel?.(); generation++; if (jobId) cancelJob(jobId); jobId = null; setBusy(false); clearResults(); status.textContent = 'Inputs changed. Analyze again to compare routes.'; }
   function setBusy(value) {
     busy = value; calculate.disabled = value; cancelButton.hidden = !value; progress.hidden = !value;
@@ -86,6 +86,7 @@ export function createRoutePlanner({ scene, apiBase, getFocus, getPlaces, onView
     for (const button of results.querySelectorAll('[data-route]')) button.setAttribute('aria-pressed', String(button.dataset.route === selectedRoute));
   }
   function renderResult(result) {
+    currentResult = result;
     results.replaceChildren(); analysis.replaceChildren(); clearLines();
     for (const route of result.routes) {
       const profile = profiles[route.id], card = document.createElement('article'); card.className = 'terrain-route'; card.style.setProperty('--route-color', profile.color);
@@ -136,5 +137,11 @@ export function createRoutePlanner({ scene, apiBase, getFocus, getPlaces, onView
       if (jobId) cancelJob(jobId); jobId = null; setBusy(false); status.textContent = `Analysis stopped: ${error.message}`;
     }
   });
-  return { update() { for (const line of lines) line.material.resolution.set(innerWidth, innerHeight); }, setEndpoint };
+  return { getState: () => ({result:currentResult,selectedRoute}), update() {
+    for (const line of lines) {
+      line.material.resolution.set(innerWidth, innerHeight);
+      line.visible = (filters?.get('route-lines') ?? true) && (filters?.get('all-routes') || line.userData.route === selectedRoute);
+      line.material.opacity = line.userData.route === selectedRoute ? .95 : .5;
+    }
+  }, setEndpoint };
 }

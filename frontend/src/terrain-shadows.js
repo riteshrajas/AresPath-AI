@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { SCALE } from './globe-math.js';
 import { terrainShading } from './terrain-lighting.js';
+export const lightingPreferences = { shadows: true, azimuth: 44, elevation: 34 };
 
 // One filtered directional shadow map, reused until the terrain, focus, zoom
 // or Sun direction changes. There is no progressive sampling or second scene.
@@ -16,7 +17,7 @@ export function createTerrainShadows(renderer, scene, sun, ambient, inspection, 
   const east = new THREE.Vector3(), north = new THREE.Vector3();
   let previousKey = '';
   return { update({ terrain, context, target, range, liveSun = false }) {
-    const active = !!terrain && terrainShading.value === 1;
+    const active = !!terrain && terrainShading.value === 1 && lightingPreferences.shadows;
     sun.castShadow = active;
     if (terrain) { terrain.mesh.castShadow = active; terrain.mesh.receiveShadow = active; }
     // Context masks are fragment-only; do not cast its uncut parent through
@@ -34,7 +35,8 @@ export function createTerrainShadows(renderer, scene, sun, ambient, inspection, 
       east.set(0, 1, 0).cross(normal);
       if (east.lengthSq() < 1e-8) east.set(1, 0, 0);
       east.normalize(); north.crossVectors(normal, east).normalize();
-      direction.copy(normal).multiplyScalar(.55).addScaledVector(east, .57).addScaledVector(north, .6).normalize();
+      const azimuth=lightingPreferences.azimuth*Math.PI/180, elevation=lightingPreferences.elevation*Math.PI/180;
+      direction.copy(normal).multiplyScalar(Math.sin(elevation)).addScaledVector(east,Math.sin(azimuth)*Math.cos(elevation)).addScaledVector(north,Math.cos(azimuth)*Math.cos(elevation)).normalize();
       ambient.intensity = .28;
       inspection.intensity = .12;
     }

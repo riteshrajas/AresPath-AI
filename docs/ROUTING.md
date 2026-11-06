@@ -55,8 +55,13 @@ time, energy budget or verified rover safety is claimed.
 
 Route points retain [east longitude, planetocentric latitude, planetary radius
 in meters]. Lines are lifted slightly for visibility and are not a wheel-level
-trajectory. Only the selected route is drawn; swapping profiles replaces the
-visible line without recomputation. UI materials/geometries are disposed when
+trajectory. The selected route is drawn by default; Filters can also show all
+alternatives, endpoint/distance markers, direction arrows, the analyzed corridor,
+and a scrubbable elevation profile. Swapping profiles updates the overlays
+without recomputation. Display thresholds never change planner constraints.
+The API returns `heights_m` aligned with `points` for source-datum elevation
+profiles, and corridor bounds use unwrapped longitudes at the antimeridian.
+UI materials/geometries are disposed when
 routes are cleared. The route planner remains independent of camera fly-to search.
 
 ## API and lifecycle

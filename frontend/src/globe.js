@@ -16,6 +16,7 @@ import { createRoutePlanner } from './route-planner.js';
 import { createCinematicReplay } from './cinematic-replay.js';
 import { hydrateReplayGeometry } from './cinematic-geometry.js';
 import { renderRelative } from './render-relative.js';
+import { attachTerrainAnalysis } from './terrain-analysis.js';
 
 const turbo = new URLSearchParams(location.search).get('turbo') === '1';
 globalThis.__ARESPATH_TURBO__ = turbo;
@@ -74,7 +75,17 @@ const places = createPlaces({ camera, isReady: () => !!baseMesh,
   onSelect: (place, range) => explore(place.longitude, place.latitude, place.name, range),
 });
 const viewFilters = createViewFilters({ renderer,
-  places,
+  places, camera, scene,
+  getTerrain: () => terrain,
+  getRouteState: () => routePlanner.getState(),
+  getRadius: (lon, lat) => {
+    if (!radiusGrid) return null;
+    const fallback = (longitude, latitude) => sampleMola(radiusGrid,mola.width,mola.height,longitude,latitude,mola.offset_m);
+    const context = (longitude, latitude) => contextTerrain ? contextRadiusAt(contextTerrain.data,longitude,latitude,fallback) : fallback(longitude,latitude);
+    return terrain ? contextRadiusAt(terrain.data,lon,lat,context) : context(lon,lat);
+  },
+  onSelect: pin => explore(pin.longitude,pin.latitude,pin.name,5000),
+  setStarsEnabled: value => realTimeSky.setStarsEnabled(value),
   getMeshes: () => [baseMesh, terrain?.mesh, contextTerrain?.mesh],
   getFocus: () => local ? cameraGroundFocus() : raySphereCoordinates(camera, 280),
 });
@@ -101,6 +112,7 @@ cinematic = createCinematicReplay({ api, renderer, camera,
   },
 });
 const routePlanner = createRoutePlanner({ scene, apiBase: api.base,
+  filters: viewFilters.registry,
   onReplay: (route,result) => cinematic.start(route,result), onReplayCancel: () => cinematic.cancel(),
   getFocus: () => cameraGroundFocus(), getPlaces: () => places.getFeatures(),
   onView: result => {
@@ -312,6 +324,9 @@ async function initialize() {
     position.setXYZ(i, ...planetPoint(lon, lat, sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m)));
   }
   geometry.computeVertexNormals();
+  const globeRadii = Float64Array.from({length: position.count}, (_, i) => Math.hypot(position.getX(i), position.getY(i), position.getZ(i)) / SCALE);
+  attachTerrainAnalysis(geometry, { rows: 361, cols: 721, bounds: [-180,-90,180,90], radii: globeRadii,
+    heights: Float64Array.from(globeRadii, radius => radius - mola.offset_m), resolution: 14818 });
   baseRadiusAt = (longitude, latitude) => {
     longitude = ((longitude + 180) % 360 + 360) % 360 - 180;
     const column = Math.floor((longitude + 180) * 2), row = Math.floor((90 - latitude) * 2);

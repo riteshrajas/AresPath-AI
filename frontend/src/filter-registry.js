@@ -10,6 +10,7 @@ export function createFilterRegistry({ storage, key = 'arespath.filters.v1' } = 
   const publish = () => { for (const listener of listeners) listener(); };
   function normalize(definition, value) {
     if (definition.type === 'toggle') return typeof value === 'boolean' ? value : definition.default;
+    if (definition.type === 'select') return definition.options.some(option => option.value === value) ? value : definition.default;
     if (typeof value !== 'number' || !Number.isFinite(value)) value = definition.default;
     const clamped = Math.min(definition.max, Math.max(definition.min, value));
     const snapped = definition.min + Math.round((clamped - definition.min) / definition.step) * definition.step;
@@ -21,7 +22,9 @@ export function createFilterRegistry({ storage, key = 'arespath.filters.v1' } = 
   const registry = {
     register(definition) {
       if (!definition.id || definitions.has(definition.id)) throw Error(`Duplicate or missing filter id: ${definition.id}`);
-      if (!['toggle', 'range'].includes(definition.type)) throw Error(`Unsupported filter type: ${definition.type}`);
+      if (!['toggle', 'range', 'select'].includes(definition.type)) throw Error(`Unsupported filter type: ${definition.type}`);
+      if (definition.type === 'select' && (!Array.isArray(definition.options) || !definition.options.length
+        || !definition.options.some(option => option.value === definition.default))) throw Error('Invalid filter options');
       if (definition.type === 'toggle' && typeof definition.default !== 'boolean') throw Error('Toggle default must be boolean');
       if (definition.type === 'range' && (!Number.isFinite(definition.min) || !Number.isFinite(definition.max)
         || !(definition.max > definition.min) || !Number.isFinite(definition.step) || !(definition.step > 0) || !Number.isFinite(definition.default))) throw Error('Invalid filter range');
@@ -44,6 +47,11 @@ export function createFilterRegistry({ storage, key = 'arespath.filters.v1' } = 
     },
     get: id => values.get(id),
     list: () => [...definitions.values()].map(definition => ({ ...definition, value: values.get(definition.id) })),
+    snapshot: () => Object.fromEntries(values),
+    restore(snapshot) {
+      if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot)) return;
+      for (const item of definitions.values()) if (Object.hasOwn(snapshot, item.id)) registry.set(item.id, snapshot[item.id]);
+    },
     reset() {
       for (const item of definitions.values()) if (!item.disabled) registry.set(item.id, item.default);
     },
