@@ -21,8 +21,23 @@ def create_app(data_root=None):
     app = FastAPI(title='AresPath Terrain API', version='0.1.0', description='Real Mars terrain coverage and equirectangular tiles. High-resolution coverage is limited to prepared datasets.')
     app.state.terrain = store
     origins=os.environ.get('ARESPATH_CORS_ORIGINS','http://127.0.0.1:5173,http://localhost:5173').split(',')
-    app.add_middleware(CORSMiddleware, allow_origins=[origin.strip() for origin in origins if origin.strip()], allow_methods=['GET'], allow_headers=['*'])
+    app.add_middleware(CORSMiddleware, allow_origins=[origin.strip() for origin in origins if origin.strip()], allow_methods=['GET','POST','DELETE'], allow_headers=['*'])
     api = APIRouter(prefix='/api/v1')
+    from .routing import routes_router
+    api.include_router(routes_router(store))
+
+    @api.get('/realism/{asset}')
+    def realism(asset:Literal['grid','manifest','ortho']):
+        name = {'grid':'grid.json','manifest':'manifest.json','ortho':'ortho.jpg'}[asset]
+        return file(store.root/'verified_terrain/olympus-scarp'/name)
+
+    @api.get('/sky')
+    def sky():
+        from .sky import current_sky
+        try:
+            return current_sky()
+        except Exception as error:
+            raise HTTPException(503, 'Sky unavailable. Install spiceypy and run python pipeline/prepare_sky.py; check kernel date coverage.') from error
 
     @api.get('/health')
     def health():

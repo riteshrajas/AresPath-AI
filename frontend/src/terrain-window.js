@@ -20,7 +20,9 @@ export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, 
     // A smaller preview grid is enough only while the camera is genuinely far
     // away. Keep mid-range views at full tile density so terrain does not look
     // soft during the transition into a close inspection.
-    size: z < 8 ? 33 : 65,
+    // Preserve more real source relief near the camera; keep the wider
+    // context cheap. Extra samples interpolate where source data is coarser.
+    size: z < 8 ? 33 : globalThis.__ARESPATH_TURBO__ && z >= 9 ? 129 : 65,
     ring,
     bounds: [-180 + 360 * left / n, 90 - 180 * (bottom + 1) / n,
       -180 + 360 * (right + 1) / n, 90 - 180 * top / n] };

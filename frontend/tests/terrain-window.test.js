@@ -19,7 +19,7 @@ test('Turbo ring metadata matches its five-by-five tile layout', () => {
   try {
     const plan = planTerrainWindow(138.35, -4.92, 67000);
     assert.equal(plan.ring, 2); assert.equal(plan.columns, 5); assert.equal(plan.rows, 5);
-    assert.equal(plan.tiles.length, 25); assert.equal(plan.size, 65);
+    assert.equal(plan.tiles.length, 25); assert.equal(plan.size, 129);
   } finally { delete globalThis.__ARESPATH_TURBO__; }
 });
 
@@ -28,6 +28,17 @@ test('Turbo biases the same source window toward finer LOD', () => {
   globalThis.__ARESPATH_TURBO__ = true;
   try { assert.equal(planTerrainWindow(138.35, -4.92, 5100).z, Math.min(18, normal.z + 1)); }
   finally { delete globalThis.__ARESPATH_TURBO__; }
+});
+
+test('Turbo doubles close-up mesh density while keeping wide context inexpensive',()=>{
+  const normal=planTerrainWindow(138.35,-4.92,67000);
+  globalThis.__ARESPATH_TURBO__=true;
+  try{
+    const close=planTerrainWindow(138.35,-4.92,67000);
+    assert.equal(close.size-1,2*(normal.size-1));
+    assert.equal(planOuterTerrainWindow(close).size,33);
+    assert.equal(planTerrainWindow(0,0,2000000).size,33);
+  }finally{delete globalThis.__ARESPATH_TURBO__;}
 });
 
 test('Turbo terrain covers the near-view width at a representative 30 km range', () => {

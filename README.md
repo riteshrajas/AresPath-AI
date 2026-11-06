@@ -23,6 +23,21 @@ location by double-click, coordinates or a site button. This uses a bounded loca
 tile window, not a full planetary quadtree. The broader mission
 capabilities described below are aspirations, not verified implemented features.
 
+**Interactive exploration:** The globe now includes drag-based look/movement
+controls, display filters, an offline catalog of 2,051 official Mars landmarks,
+and location search. [Terrain route planning](docs/ROUTING.md) compares safest,
+balanced and shortest elevation-based paths between landmarks or crosshair
+points, with background processing and explicit source-resolution limits.
+[Cinematic Replay](docs/CINEMATIC_REPLAY.md) prepares native terrain cells and
+worker-built meshes along a chosen route before a start-to-finish camera replay.
+These are DEM-based visualizations; small hazards and verified rover safety are
+not modeled. See [filter extensions](docs/FILTERS.md) and
+[lighting limitations](docs/REALISM.md).
+
+After installing the frontend and backend dependencies in the framework guide,
+`npm run dev` at the repository root starts both services. `npm test` runs the
+frontend suite; `python -m pytest backend/tests -q` runs the backend suite.
+
 **Expanded Gale dataset:** The globe can sample the [10-km-radius Gale mosaic](docs/GALE_10KM.md). Valid source coverage is complete within the requested radius: about 29.5% HiRISE and 70.5% CTX, prepared at 20 m with a separate 40 m export mesh; the new globe selects its display grid by zoom. The sources have measured vertical offsets and may show seams; the original small terrain files remain available.
 
 **Legacy static globe UI:** `web/index.html` renders coarse measured MOLA planetary radii and places the verified Jezero and Gale HiRISE patches at their source coordinates. Three small navigation buttons move between the globe and the patches in one scene; procedural site models, hazard controls and simulated telemetry remain removed. See [globe stitching details and reproduction](docs/GLOBE_STITCHING.md). The separate terrain viewer and scientific output files remain available.

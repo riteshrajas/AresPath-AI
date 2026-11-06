@@ -5,6 +5,17 @@ import { TerrainClient } from './terrain-client.js';
 import { planTerrainWindow, planOuterTerrainWindow, fetchTerrainWindow } from './terrain-window.js';
 import { createTerrainSurface, contextRadiusAt } from './terrain-surface.js';
 import { marsMaterial, gradeMarsColor } from './mars-material.js';
+import { createRealTimeSky } from './real-time-sky.js';
+import { setupTerrainShading } from './terrain-lighting.js';
+import { createTerrainShadows } from './terrain-shadows.js';
+import { createNavigation } from './navigation.js';
+import { createViewFilters } from './view-filters.js';
+import { raySphereCoordinates } from './coordinates.js';
+import { createPlaces } from './places.js';
+import { createRoutePlanner } from './route-planner.js';
+import { createCinematicReplay } from './cinematic-replay.js';
+import { hydrateReplayGeometry } from './cinematic-geometry.js';
+import { renderRelative } from './render-relative.js';
 
 const turbo = new URLSearchParams(location.search).get('turbo') === '1';
 globalThis.__ARESPATH_TURBO__ = turbo;
@@ -18,11 +29,17 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 renderer.setPixelRatio(Math.min(devicePixelRatio, turbo ? 1.25 : 2)); renderer.setSize(innerWidth, innerHeight);
 document.querySelector('#canvas-container').appendChild(renderer.domElement);
-scene.add(new THREE.AmbientLight(0xffffff, .85));
+const ambient = new THREE.AmbientLight(0xffffff, .85); scene.add(ambient);
 const sun = new THREE.DirectionalLight(0xffffff, 2.4); sun.position.set(1200, 800, 1000); scene.add(sun);
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
+const realTimeSky = createRealTimeSky(scene, camera, sun, ambient, inspection, api.base);
+const terrainShadows = createTerrainShadows(renderer, scene, sun, ambient, inspection, turbo);
 const errorText = document.querySelector('#error');
 const loadingStatus = document.querySelector('#loading-status');
+const rangeText = document.querySelector('#range');
+let lastRangeText = '';
+const focusCameraPosition = new THREE.Vector3(Infinity, Infinity, Infinity);
+const focusCameraRotation = new THREE.Quaternion();
 const turboToggle = document.querySelector('#turbo-toggle');
 turboToggle.classList.toggle('active', turbo); turboToggle.textContent = turbo ? 'Turbo mode · On' : 'Turbo mode';
 turboToggle.title = turbo ? 'High-performance rendering enabled' : 'Enable high-performance rendering';
@@ -31,11 +48,15 @@ turboToggle.addEventListener('click', () => {
 });
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain, contextTerrain;
+let cinematic;
+let cinematicPreviousLocal;
+let wasRelativeRender = false;
 let contextPending, contextLoadedKey = '', contextRequestedKey = '', contextRetryAt = 0, contextFailed = false;
 let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
 let autoFocusPending = false, autoFocusRetryAt = 0;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 const innerMask = new THREE.Vector4(0, 0, 0, 0);
+setupTerrainShading(document.querySelector('#terrain-shading-toggle'));
 function makeControls(target = new THREE.Vector3()) {
   controls?.dispose(); controls = new OrbitControls(camera, renderer.domElement);
   controls.target.copy(target); controls.enableDamping = true; controls.enablePan = false;
@@ -47,6 +68,48 @@ function makeControls(target = new THREE.Vector3()) {
   controls.maxPolarAngle = local ? Math.PI / 2 - .12 : Math.PI - .03; controls.update();
 }
 makeControls();
+const navigation = createNavigation(camera, () => controls, () => !!flight || !!cinematic?.active, reset);
+const places = createPlaces({ camera, isReady: () => !!baseMesh,
+  getRadius: (longitude, latitude) => sampleMola(radiusGrid, mola.width, mola.height, longitude, latitude, mola.offset_m),
+  onSelect: (place, range) => explore(place.longitude, place.latitude, place.name, range),
+});
+const viewFilters = createViewFilters({ renderer,
+  places,
+  getMeshes: () => [baseMesh, terrain?.mesh, contextTerrain?.mesh],
+  getFocus: () => local ? cameraGroundFocus() : raySphereCoordinates(camera, 280),
+});
+cinematic = createCinematicReplay({ api, renderer, camera,
+  getGlobe: () => radiusGrid && texture ? {grid:radiusGrid,width:mola.width,height:mola.height,offset:mola.offset_m} : null,
+  onBegin: () => {
+    cinematicPreviousLocal = local;
+    selection++; pending?.abort(); contextPending?.abort(); requestedKey = contextRequestedKey = ''; flight = null;
+    controls.enabled = false; clearContext(); clearTerrain();
+    local = {longitude:0,latitude:0,label:'Cinematic Replay'};
+  },
+  onWindow: snapshot => {
+    clearContext(); clearTerrain();
+    if(snapshot.context){contextTerrain=hydrateReplayGeometry(snapshot.context,texture,innerMask);scene.add(contextTerrain.mesh);}
+    terrain = hydrateReplayGeometry(snapshot,texture);scene.add(terrain.mesh);
+    mask.set(...(contextTerrain?.data.bounds||terrain.data.bounds));innerMask.set(...terrain.data.bounds);loadedKey = '';
+    setLoadingStatus('Cinematic Replay · prepared native terrain', 'ready');
+  },
+  onPose: pose => { controls.target.copy(pose.target); local.longitude = pose.longitude; local.latitude = pose.latitude; },
+  onEnd: pose => {
+    if(pose){local = {longitude:pose.longitude,latitude:pose.latitude,label:'Replay position'};makeControls(pose.target);}
+    else { local = cinematicPreviousLocal; controls.enabled = true; }
+    loadedKey = ''; requestedKey = ''; scheduledAt = 0;
+  },
+});
+const routePlanner = createRoutePlanner({ scene, apiBase: api.base,
+  onReplay: (route,result) => cinematic.start(route,result), onReplayCancel: () => cinematic.cancel(),
+  getFocus: () => cameraGroundFocus(), getPlaces: () => places.getFeatures(),
+  onView: result => {
+    const start = result.start, end = result.destination;
+    const delta = ((end.longitude - start.longitude + 540) % 360) - 180;
+    const longitude = ((start.longitude + delta / 2 + 540) % 360) - 180;
+    explore(longitude, (start.latitude + end.latitude) / 2, 'Route area', Math.max(200, Math.min(800000, result.direct_distance_m * 1.7)));
+  },
+});
 function fly(position, target, up) {
   flight = { start: performance.now(), from: camera.position.clone(), target: controls.target.clone(), up: camera.up.clone(),
     to: position, endTarget: target, endUp: up }; controls.enabled = false;
@@ -88,12 +151,15 @@ function setTerrainReadyStatus() {
   setLoadingStatus(`Terrain ready · LOD ${data.z} · ${count} source${count === 1 ? '' : 's'}${detail}`, 'ready');
 }
 function reset() {
+  cinematic?.cancel();
   selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
   inspection.intensity = 0; errorText.textContent = '';
   setLoadingStatus('Mars globe ready', 'ready');
   fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
 }
 async function explore(longitude, latitude, label = 'Selected location', range = 30000, preserveView = false) {
+  cinematic?.cancel();
+  focusCameraPosition.set(Infinity, Infinity, Infinity);
   const token = ++selection; pending?.abort(); requestedKey = ''; retryAt = 0; clearContext();
   errorText.textContent = '';
   try {
@@ -115,6 +181,7 @@ async function explore(longitude, latitude, label = 'Selected location', range =
   } catch (error) { if (selection === token) errorText.textContent = `Location unavailable: ${error.message}`; }
 }
 async function focusFromZoom(now) {
+  if(cinematic?.active)return;
   if (local || flight || !baseMesh || autoFocusPending || now < autoFocusRetryAt) return;
   // Switch before the old orbit-distance floor can block a surface approach.
   const radial = camera.position.length();
@@ -132,19 +199,30 @@ async function focusFromZoom(now) {
   try { await explore(lon, lat, 'Zoom location', 0, true); }
   finally { autoFocusPending = false; autoFocusRetryAt = performance.now() + 2000; }
 }
+let groundFocusKey = '', groundFocusValue = null;
 function cameraGroundFocus() {
   if (!baseMesh) return null;
+  const key = [baseMesh.geometry.uuid, terrain?.mesh.geometry.uuid, contextTerrain?.mesh.geometry.uuid,
+    contextTerrain?.mesh.visible, ...camera.position.toArray(), ...camera.quaternion.toArray()].join('/');
+  if (key === groundFocusKey) return groundFocusValue;
+  groundFocusKey = key;
   const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0, 0), camera);
-  const objects = terrain ? [terrain.mesh, baseMesh] : [baseMesh];
+  const objects = [terrain?.mesh, contextTerrain?.mesh.visible ? contextTerrain.mesh : null, baseMesh].filter(Boolean);
+  for (const object of objects) object.updateWorldMatrix(true, false);
   const hit = ray.intersectObjects(objects)[0];
-  if (!hit) return null;
+  if (!hit) return groundFocusValue = null;
   const direction = hit.point.clone().normalize();
-  return {
+  return groundFocusValue = {
     longitude: Math.atan2(-direction.z, direction.x) * 180 / Math.PI,
     latitude: Math.asin(THREE.MathUtils.clamp(direction.y, -1, 1)) * 180 / Math.PI
   };
 }
 function followCameraTile(plan) {
+  // Raycasting the dense surface is expensive. A stationary camera sees the
+  // same focus; tile arrivals do not require repeating the triangle search.
+  if (focusCameraPosition.distanceToSquared(camera.position) < 1e-14 &&
+      1 - Math.abs(focusCameraRotation.dot(camera.quaternion)) < 1e-12) return;
+  focusCameraPosition.copy(camera.position); focusCameraRotation.copy(camera.quaternion);
   const focus = cameraGroundFocus();
   if (!focus || !local) return;
   const centerLon = local.longitude;
@@ -160,6 +238,7 @@ function followCameraTile(plan) {
   }
 }
 async function updateTerrain(now) {
+  if(cinematic?.active)return;
   if (!local || flight || now < scheduledAt || now < retryAt) return;
   scheduledAt = now + 250;
   const range = camera.position.distanceTo(controls.target) / SCALE;
@@ -280,7 +359,7 @@ async function initialize() {
   }
 }
 renderer.domElement.addEventListener('dblclick', event => {
-  if (!baseMesh || flight) return;
+  if (!baseMesh || flight || cinematic.active) return;
   const rect = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
   ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
   const hit = ray.intersectObjects(terrain ? [terrain.mesh, baseMesh] : [baseMesh])[0];
@@ -289,7 +368,9 @@ renderer.domElement.addEventListener('dblclick', event => {
   explore(longitude, latitude, 'Selected location', local ? Math.max(300, camera.position.distanceTo(controls.target) / SCALE / 2) : 100000);
 });
 renderer.setAnimationLoop(now => {
-  if (flight) {
+  navigation.beginFrame(now);
+  if(cinematic.active) cinematic.update(now);
+  else if (flight) {
     const t = Math.min(1, (now - flight.start) / 850), ease = (1 - Math.cos(t * Math.PI)) / 2;
     camera.position.lerpVectors(flight.from, flight.to, ease); controls.target.lerpVectors(flight.target, flight.endTarget, ease);
     camera.up.lerpVectors(flight.up, flight.endUp, ease).normalize(); camera.lookAt(controls.target);
@@ -314,12 +395,24 @@ renderer.setAnimationLoop(now => {
     }
     const safe = (ground + 18) * SCALE; if (radial < safe) camera.position.multiplyScalar(safe / radial);
   }
+  navigation.applyView();
   inspection.position.copy(camera.position); inspection.target.position.copy(controls.target);
   const rangeMeters = camera.position.distanceTo(controls.target) / SCALE;
-  document.querySelector('#range').textContent = rangeMeters < 1000
+  const nextRangeText = rangeMeters < 1000
     ? `${Math.round(rangeMeters)} m view range`
     : `${(rangeMeters / 1000).toFixed(1)} km view range`;
-  focusFromZoom(now); updateTerrain(now); renderer.render(scene, camera);
+  if (nextRangeText !== lastRangeText) { rangeText.textContent = nextRangeText; lastRangeText = nextRangeText; }
+  focusFromZoom(now); updateTerrain(now); realTimeSky.update();
+  terrainShadows.update({ terrain, context: contextTerrain, target: controls.target, range: rangeMeters,
+    liveSun: document.querySelector('#rt-toggle').getAttribute('aria-pressed') === 'true' });
+  viewFilters.update(now);
+  places.update(now);
+  routePlanner.update();
+  if(wasRelativeRender!==cinematic.active) renderer.shadowMap.needsUpdate=true;
+  wasRelativeRender=cinematic.active;
+  if(cinematic.active)renderRelative(renderer,scene,camera);
+  else renderer.render(scene, camera);
+  navigation.update();
 });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 initialize().catch(error => { errorText.textContent = error.message; console.error(error); });

@@ -1,19 +1,23 @@
 import * as THREE from 'three';
-import { planetPoint, terrainIndices } from './globe-math.js';
+import { SCALE, planetPoint, terrainIndices } from './globe-math.js';
 import { marsMaterial } from './mars-material.js';
+import { terrainOcclusion, applyTerrainLighting } from './terrain-lighting.js';
 
 export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = null) {
   const { rows, cols, bounds, radii, heights, measured } = data;
   const [west, south, east, north] = bounds;
   const point = (lon, lat, radius) => new THREE.Vector3(...planetPoint(lon, lat, radius));
   const center = point((west + east) / 2, (south + north) / 2, radii[Math.floor(radii.length / 2)]);
-  const positions = [], colors = [], uvs = [];
+  const positions = [], colors = [], uvs = [], occlusion = Array.from(terrainOcclusion(data));
   let minHeight = Infinity, maxHeight = -Infinity;
   for (let i = 0; i < heights.length; i++) if (!measured || measured[i]) {
     minHeight = Math.min(minHeight, heights[i]); maxHeight = Math.max(maxHeight, heights[i]);
   }
   const add = (longitude, latitude, radius, height = minHeight) => {
-    positions.push(...point(longitude, latitude, radius).sub(center).toArray());
+    const lon = longitude * Math.PI / 180, lat = latitude * Math.PI / 180;
+    const scaledRadius = radius * SCALE, horizontal = scaledRadius * Math.cos(lat);
+    positions.push(horizontal * Math.cos(lon) - center.x,
+      scaledRadius * Math.sin(lat) - center.y, -horizontal * Math.sin(lon) - center.z);
     const t = THREE.MathUtils.clamp((height - minHeight) / Math.max(1, maxHeight - minHeight), 0, 1);
     colors.push(.34 + .19 * t, .20 + .13 * t, .14 + .08 * t);
     uvs.push((longitude + 180) / 360, (latitude + 90) / 180);
@@ -39,6 +43,7 @@ export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = nu
       const outerLat = outer[3] - (outer[3] - outer[1]) * y / (rows - 1);
       const lon = longitude + t * (outerLon - longitude), lat = latitude + t * (outerLat - latitude);
       current.push(positions.length / 3);
+      occlusion.push(1 + (occlusion[index] - 1) * (1 - t));
       add(lon, lat, (1 - t) * radii[index] + t * (baseRadiusAt(lon, lat) + 2) - (ring === 3 ? 2000 : 0), heights[index]);
     }
     for (let i = 0; i < border.length; i++) {
@@ -51,10 +56,16 @@ export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = nu
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('terrainAO', new THREE.Float32BufferAttribute(occlusion, 1));
   geometry.setIndex(indices); geometry.computeVertexNormals();
   // Use the same basemap and grade as the globe at every zoom. Elevation still
   // shapes the geometry; it no longer recolors each window into a tan palette.
   const material = marsMaterial(texture, THREE.DoubleSide); material.vertexColors = true;
+  const marsMaterialCompile = material.onBeforeCompile;
+  material.onBeforeCompile = shader => {
+    marsMaterialCompile(shader);
+    applyTerrainLighting(shader);
+  };
   if (innerMask) {
     const compile = material.onBeforeCompile;
     material.onBeforeCompile = shader => {

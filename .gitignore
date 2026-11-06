@@ -3,6 +3,7 @@ node_modules/
 dist/
 build/
 .cache/
+.vite/
 
 # Python
 __pycache__/
@@ -14,6 +15,10 @@ venv/
 
 # Large Datasets / GIS / Point Clouds
 data/
+# Small, redistributable landmark snapshot ships with the web app.
+!frontend/public/data/
+frontend/public/data/*
+!frontend/public/data/mars-places.json
 *.JP2
 *.jp2
 *.IMG

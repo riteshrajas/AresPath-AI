@@ -12,6 +12,8 @@
 <body>
 <div id="canvas-container"></div>
 <header><h1>ARESPATH</h1><p class="subtitle">Mars · global terrain explorer</p><span class="globe-label">Mars globe</span><button id="turbo-toggle" class="turbo-toggle" type="button">Turbo mode</button></header>
+<script>const rt=document.createElement('button');rt.id='rt-toggle';rt.className='turbo-toggle';rt.type='button';rt.textContent='RT';rt.setAttribute('aria-pressed','false');rt.title='Real-time NASA sky and sunlight';document.querySelector('header').appendChild(rt);</script>
+<script>const shading=document.createElement('button');shading.id='terrain-shading-toggle';shading.type='button';shading.className='turbo-toggle';shading.textContent='Terrain lighting';shading.setAttribute('aria-pressed','true');shading.title='Angled exploration lighting and terrain-cast shadows. RT uses the real Sun direction. Explore a surface location to see the effect.';document.querySelector('header').appendChild(shading);</script>
 <footer>Drag to orbit · Scroll to zoom · Double-click to explore · <span id="range">Orbital view</span></footer>
 <p id="loading-status" role="status" aria-live="polite">Mars globe ready</p>
 <p id="error" role="alert"></p>
