@@ -4,12 +4,14 @@ import { marsMaterial } from './mars-material.js';
 import { terrainOcclusion, applyTerrainLighting } from './terrain-lighting.js';
 import { attachTerrainAnalysis } from './terrain-analysis.js';
 
-export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = null) {
+export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = null, cache = null) {
   const { rows, cols, bounds, radii, heights, measured } = data;
   const [west, south, east, north] = bounds;
   const point = (lon, lat, radius) => new THREE.Vector3(...planetPoint(lon, lat, radius));
   const center = point((west + east) / 2, (south + north) / 2, radii[Math.floor(radii.length / 2)]);
-  const positions = [], colors = [], uvs = [], occlusion = Array.from(terrainOcclusion(data));
+  const positions = [], colors = [], uvs = [];
+  const baseOcclusion = cache?.occlusion || (cache?.fast ? new Float32Array(rows * cols).fill(1) : terrainOcclusion(data));
+  const occlusion = Array.from(baseOcclusion);
   let minHeight = Infinity, maxHeight = -Infinity;
   for (let i = 0; i < heights.length; i++) if (!measured || measured[i]) {
     minHeight = Math.min(minHeight, heights[i]); maxHeight = Math.max(maxHeight, heights[i]);
@@ -59,7 +61,7 @@ export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = nu
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setAttribute('terrainAO', new THREE.Float32BufferAttribute(occlusion, 1));
   geometry.setIndex(indices); geometry.computeVertexNormals();
-  attachTerrainAnalysis(geometry, data);
+  const analysis = attachTerrainAnalysis(geometry, data, cache?.analysis);
   // Use the same basemap and grade as the globe at every zoom. Elevation still
   // shapes the geometry; it no longer recolors each window into a tan palette.
   const material = marsMaterial(texture, THREE.DoubleSide); material.vertexColors = true;
@@ -82,7 +84,7 @@ export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = nu
     };
   }
   const mesh = new THREE.Mesh(geometry, material); mesh.position.copy(center);
-  return { mesh, data, outer };
+  return { mesh, data, outer, occlusion: baseOcclusion, analysis };
 }
 
 // Sample the wider context window for the inner window's display-only collar.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from functools import lru_cache
 from pathlib import Path
 
@@ -119,6 +120,7 @@ class TerrainStore:
         self.areoid = self._array('areoid')
         self.ready = self.radius is not None and self.areoid is not None
         self.datasets = []
+        self._lock = threading.Lock()
         # Broad coverage first, then finer native crops override it.
         self.unavailable = []
         for entry in self.registry['datasets']:
@@ -130,20 +132,37 @@ class TerrainStore:
                 self.unavailable.append(identifier)
                 continue
             metadata = self._json(path/'manifest.json')
-            with rasterio.open(path/'elevation.tif') as dataset:
-                left, bottom, right, top = dataset.bounds
-                longitude, latitude = transform(dataset.crs, geodetic_crs(dataset.crs),
-                                                 [left, right], [bottom, top])
+            elevation_ds = rasterio.open(path/'elevation.tif')
+            attribution_ds = rasterio.open(path/'source_index.tif') if (path/'source_index.tif').exists() else None
+            left, bottom, right, top = elevation_ds.bounds
+            longitude, latitude = transform(elevation_ds.crs, geodetic_crs(elevation_ds.crs),
+                                             [left, right], [bottom, top])
             self.datasets.append({'id': identifier, 'path': path, 'source_id': source_id,
                                   'attribution_source_ids':entry.get('attribution_source_ids'),
                                   'bounds': entry.get('bounds', [(longitude[0]+180)%360-180, min(latitude), (longitude[1]+180)%360-180, max(latitude)]),
-                                  'metadata': metadata})
+                                  'metadata': metadata,
+                                  'elevation_ds': elevation_ds,
+                                  'attribution_ds': attribution_ds})
         signature = []
         for path in sorted((self.root/'verified_terrain').rglob('*')) if (self.root/'verified_terrain').exists() else []:
             if path.name in ('manifest.json', 'elevation.tif', 'source_index.tif', 'radius.i16', 'areoid.i16', 'grid.json'):
                 info = path.stat()
                 signature.append((str(path.relative_to(self.root)), info.st_size, info.st_mtime_ns))
         self.revision = hashlib.sha256(json.dumps([self.registry,signature]).encode()).hexdigest()[:20]
+
+    def close(self):
+        with self._lock:
+            for item in self.datasets:
+                if item.get('elevation_ds'):
+                    try: item['elevation_ds'].close()
+                    except Exception: pass
+                if item.get('attribution_ds'):
+                    try: item['attribution_ds'].close()
+                    except Exception: pass
+
+    def __del__(self):
+        try: self.close()
+        except Exception: pass
 
     @staticmethod
     def _json(path):
@@ -175,11 +194,12 @@ class TerrainStore:
         radius = self._mola(self.radius, longitude, latitude)
         height = radius-areoid
         source = np.zeros(longitude.shape, dtype=np.uint16)
-        for item in self.datasets:
-            selected = np.flatnonzero(contains(item['bounds'],longitude,latitude))
-            if not selected.size:
-                continue
-            with rasterio.open(item['path']/'elevation.tif') as dataset:
+        with self._lock:
+            for item in self.datasets:
+                selected = np.flatnonzero(contains(item['bounds'],longitude,latitude))
+                if not selected.size:
+                    continue
+                dataset = item['elevation_ds']
                 xx, yy = transform(geodetic_crs(dataset.crs), dataset.crs, longitude[selected], latitude[selected])
                 values = (sample_global_display_cells(dataset, xx, yy)
                           if display and item['id'] == 'global-200m'
@@ -187,14 +207,14 @@ class TerrainStore:
                 valid = ~np.ma.getmaskarray(values)&np.isfinite(values.data)&(np.abs(values.data)<1e7)
                 retained = selected[valid]
                 height[retained] = values.data[valid]
-            source[retained] = item['source_id']
-            if item['attribution_source_ids']:
-                with rasterio.open(item['path']/'source_index.tif') as attribution:
+                source[retained] = item['source_id']
+                if item['attribution_source_ids'] and item.get('attribution_ds') is not None:
+                    attribution = item['attribution_ds']
                     ids = sample_native_cells(attribution, xx, yy).filled(0).astype(int)
-                kind_by_id = {s['source_index']:s['kind'] for s in item['metadata']['sources']}
-                for native_id in np.unique(ids[valid]):
-                    kind = kind_by_id[int(native_id)]
-                    source[selected[valid & (ids == native_id)]] = item['attribution_source_ids'][kind]
+                    kind_by_id = {s['source_index']:s['kind'] for s in item['metadata']['sources']}
+                    for native_id in np.unique(ids[valid]):
+                        kind = kind_by_id[int(native_id)]
+                        source[selected[valid & (ids == native_id)]] = item['attribution_source_ids'][kind]
         radius = areoid+height
         if not np.isfinite(radius).all() or not np.isfinite(height).all():
             raise ValueError('Non-finite source terrain samples')
@@ -220,7 +240,7 @@ class TerrainStore:
                 'selected_source':self.source_by_id[int(source[0])],
                 'datasets':[d['id'] for d in self.datasets if contains(d['bounds'],longitude,latitude)]}
 
-    @lru_cache(maxsize=128)
+    @lru_cache(maxsize=512)
     def tile(self, z, x, y, size, sampling='native'):
         west,south,east,north = tile_bounds(z,x,y)
         longitude,latitude = np.meshgrid(np.linspace(west,east,size), np.linspace(north,south,size))
@@ -237,6 +257,10 @@ class TerrainStore:
                 'warnings':['Display interpolation does not create finer source measurements' if sampling == 'display'
                             else 'Dense output grids do not create finer source measurements',
                             'Mixed-source offsets and resolution boundaries are not corrected']}
+
+    @lru_cache(maxsize=512)
+    def tile_json(self, z, x, y, size, sampling='native'):
+        return json.dumps(self.tile(z, x, y, size, sampling), separators=(',', ':'))
 
     def region_dir(self, site):
         if site not in ('jezero','gale'):

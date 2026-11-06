@@ -67,12 +67,14 @@ def create_app(data_root=None):
             raise HTTPException(503,'Prepared MOLA terrain missing; run pipeline/stitch_globe.py')
         if request.headers.get('if-none-match')==etag:
             return Response(status_code=304,headers={'ETag':etag,'Cache-Control':'public, max-age=3600'})
-        before=store.tile.cache_info().hits
-        result=store.tile(z,x,y,size,sampling)
-        response.headers['ETag']=etag
-        response.headers['Cache-Control']='public, max-age=3600'
-        response.headers['X-Terrain-Cache']='HIT' if store.tile.cache_info().hits>before else 'MISS'
-        return result
+        before=store.tile_json.cache_info().hits
+        content=store.tile_json(z,x,y,size,sampling)
+        headers={
+            'ETag': etag,
+            'Cache-Control': 'public, max-age=3600',
+            'X-Terrain-Cache': 'HIT' if store.tile_json.cache_info().hits>before else 'MISS',
+        }
+        return Response(content=content, media_type='application/json', headers=headers)
 
     def file(path, media_type=None):
         if not path.is_file():
