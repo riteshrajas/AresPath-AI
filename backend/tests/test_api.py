@@ -156,3 +156,39 @@ def test_frontend_assets_are_routed_through_api(client):
     assert client.get('/api/v1/globe/radius.i16').status_code==200
     assert client.get('/api/v1/regions/gale/manifest').json()['requested_radius_m']==10000
     assert client.get('/api/v1/regions/arbitrary/grid').status_code==422
+
+
+def test_terrain_store_lifecycle_and_leak_prevention():
+    import weakref
+    from backend.app.terrain import TerrainStore
+
+    store = TerrainStore(ROOT/'data')
+    assert hasattr(store, '_lock')
+    assert len(store.datasets) > 0
+
+    info0 = store.tile_json.cache_info()
+    res1 = store.tile_json(2, 1, 1, 33)
+    info1 = store.tile_json.cache_info()
+    assert info1.misses == info0.misses + 1
+    res2 = store.tile_json(2, 1, 1, 33)
+    info2 = store.tile_json.cache_info()
+    assert info2.hits == info0.hits + 1
+    assert res1 == res2
+
+    elevation_ds = store.datasets[0]['elevation_ds']
+    assert not elevation_ds.closed
+
+    wr = weakref.ref(store)
+    store.close()
+    assert elevation_ds.closed
+    del store
+    assert wr() is None
+
+
+def test_terrain_store_partial_construction_close_safety():
+    from backend.app.terrain import TerrainStore
+
+    store = TerrainStore.__new__(TerrainStore)
+    store.close()
+    store.__del__()
+

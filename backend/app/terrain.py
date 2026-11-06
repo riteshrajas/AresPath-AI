@@ -4,8 +4,88 @@ from __future__ import annotations
 import hashlib
 import json
 import threading
-from functools import lru_cache
+from collections import OrderedDict, namedtuple
 from pathlib import Path
+
+CacheInfo = namedtuple('CacheInfo', ['hits', 'misses', 'maxsize', 'currsize'])
+
+
+class _LRUCache:
+    def __init__(self, maxsize=512):
+        self.maxsize = maxsize
+        self._data = OrderedDict()
+        self.hits = 0
+        self.misses = 0
+
+    def get(self, key):
+        if key in self._data:
+            self.hits += 1
+            self._data.move_to_end(key)
+            return self._data[key]
+        self.misses += 1
+        return None
+
+    def set(self, key, value):
+        if key in self._data:
+            self._data.move_to_end(key)
+        else:
+            if len(self._data) >= self.maxsize:
+                self._data.popitem(last=False)
+        self._data[key] = value
+
+    def cache_info(self):
+        return CacheInfo(self.hits, self.misses, self.maxsize, len(self._data))
+
+    def cache_clear(self):
+        self._data.clear()
+        self.hits = 0
+        self.misses = 0
+
+
+class _BoundCachedMethod:
+    def __init__(self, func, instance, cache):
+        self.func = func
+        self.instance = instance
+        self.cache = cache
+
+    def __call__(self, *args, **kwargs):
+        key = (args, tuple(sorted(kwargs.items())))
+        cached = self.cache.get(key)
+        if cached is not None:
+            return cached
+        res = self.func(self.instance, *args, **kwargs)
+        self.cache.set(key, res)
+        return res
+
+    def cache_info(self):
+        return self.cache.cache_info()
+
+    def cache_clear(self):
+        self.cache.cache_clear()
+
+
+class instance_lru_cache:
+    """LRU cache stored on the instance rather than the function closure.
+
+    This avoids circular references from functools.lru_cache bound methods
+    that prevent TerrainStore garbage collection and lead to open file handle leaks.
+    """
+    def __init__(self, maxsize=512):
+        self.maxsize = maxsize
+
+    def __call__(self, func):
+        self.func = func
+        self.name = func.__name__
+        return self
+
+    def __get__(self, instance, owner=None):
+        if instance is None:
+            return self
+        cache_attr = f'_{self.name}_cache'
+        if not hasattr(instance, cache_attr):
+            setattr(instance, cache_attr, _LRUCache(self.maxsize))
+        return _BoundCachedMethod(self.func, instance, getattr(instance, cache_attr))
+
 
 import numpy as np
 import rasterio
@@ -108,6 +188,8 @@ def tile_bounds(z: int, x: int, y: int):
 
 class TerrainStore:
     def __init__(self, root: Path):
+        self._lock = threading.Lock()
+        self.datasets = []
         self.root = root.resolve()
         self.registry = self._json(Path(__file__).resolve().parents[1]/'catalog.json')
         self.sources = self.registry['sources']
@@ -119,8 +201,6 @@ class TerrainStore:
         self.radius = self._array('radius')
         self.areoid = self._array('areoid')
         self.ready = self.radius is not None and self.areoid is not None
-        self.datasets = []
-        self._lock = threading.Lock()
         # Broad coverage first, then finer native crops override it.
         self.unavailable = []
         for entry in self.registry['datasets']:
@@ -133,21 +213,26 @@ class TerrainStore:
                 continue
             metadata = self._json(path/'manifest.json')
             elevation_ds = rasterio.open(path/'elevation.tif')
+            attribution_ds = None
             try:
-                attribution_ds = rasterio.open(path/'source_index.tif') if (path/'source_index.tif').exists() else None
+                if (path/'source_index.tif').exists():
+                    attribution_ds = rasterio.open(path/'source_index.tif')
+                left, bottom, right, top = elevation_ds.bounds
+                longitude, latitude = transform(elevation_ds.crs, geodetic_crs(elevation_ds.crs),
+                                                 [left, right], [bottom, top])
+                self.datasets.append({'id': identifier, 'path': path, 'source_id': source_id,
+                                      'attribution_source_ids':entry.get('attribution_source_ids'),
+                                      'bounds': entry.get('bounds', [(longitude[0]+180)%360-180, min(latitude), (longitude[1]+180)%360-180, max(latitude)]),
+                                      'metadata': metadata,
+                                      'elevation_ds': elevation_ds,
+                                      'attribution_ds': attribution_ds})
             except Exception:
-                elevation_ds.close()
+                try: elevation_ds.close()
+                except Exception: pass
+                if attribution_ds is not None:
+                    try: attribution_ds.close()
+                    except Exception: pass
                 raise
-
-            left, bottom, right, top = elevation_ds.bounds
-            longitude, latitude = transform(elevation_ds.crs, geodetic_crs(elevation_ds.crs),
-                                             [left, right], [bottom, top])
-            self.datasets.append({'id': identifier, 'path': path, 'source_id': source_id,
-                                  'attribution_source_ids':entry.get('attribution_source_ids'),
-                                  'bounds': entry.get('bounds', [(longitude[0]+180)%360-180, min(latitude), (longitude[1]+180)%360-180, max(latitude)]),
-                                  'metadata': metadata,
-                                  'elevation_ds': elevation_ds,
-                                  'attribution_ds': attribution_ds})
         signature = []
         for path in sorted((self.root/'verified_terrain').rglob('*')) if (self.root/'verified_terrain').exists() else []:
             if path.name in ('manifest.json', 'elevation.tif', 'source_index.tif', 'radius.i16', 'areoid.i16', 'grid.json'):
@@ -156,20 +241,10 @@ class TerrainStore:
         self.revision = hashlib.sha256(json.dumps([self.registry,signature]).encode()).hexdigest()[:20]
 
     def close(self):
-        with self._lock:
-            for item in self.datasets:
-                if item.get('elevation_ds'):
-                    try: item['elevation_ds'].close()
-                    except Exception: pass
-                if item.get('attribution_ds'):
-                    try: item['attribution_ds'].close()
-                    except Exception: pass
-
-    def close(self):
         if not hasattr(self, '_lock'):
             return
         with self._lock:
-            for item in self.datasets:
+            for item in getattr(self, 'datasets', []):
                 if item.get('elevation_ds'):
                     try: item['elevation_ds'].close()
                     except Exception: pass
@@ -231,8 +306,9 @@ class TerrainStore:
                     ids = sample_native_cells(attribution, xx, yy).filled(0).astype(int)
                     kind_by_id = {s['source_index']:s['kind'] for s in item['metadata']['sources']}
                     for native_id in np.unique(ids[valid]):
-                        kind = kind_by_id[int(native_id)]
-                        source[selected[valid & (ids == native_id)]] = item['attribution_source_ids'][kind]
+                        kind = kind_by_id.get(int(native_id))
+                        if kind and kind in item['attribution_source_ids']:
+                            source[selected[valid & (ids == native_id)]] = item['attribution_source_ids'][kind]
         radius = areoid+height
         if not np.isfinite(radius).all() or not np.isfinite(height).all():
             raise ValueError('Non-finite source terrain samples')
@@ -258,7 +334,7 @@ class TerrainStore:
                 'selected_source':self.source_by_id[int(source[0])],
                 'datasets':[d['id'] for d in self.datasets if contains(d['bounds'],longitude,latitude)]}
 
-    @lru_cache(maxsize=512)
+    @instance_lru_cache(maxsize=512)
     def tile(self, z, x, y, size, sampling='native'):
         west,south,east,north = tile_bounds(z,x,y)
         longitude,latitude = np.meshgrid(np.linspace(west,east,size), np.linspace(north,south,size))
@@ -276,7 +352,7 @@ class TerrainStore:
                             else 'Dense output grids do not create finer source measurements',
                             'Mixed-source offsets and resolution boundaries are not corrected']}
 
-    @lru_cache(maxsize=512)
+    @instance_lru_cache(maxsize=512)
     def tile_json(self, z, x, y, size, sampling='native'):
         return json.dumps(self.tile(z, x, y, size, sampling), separators=(',', ':'))
 
