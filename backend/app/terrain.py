@@ -160,9 +160,22 @@ class TerrainStore:
                     try: item['attribution_ds'].close()
                     except Exception: pass
 
+    def close(self):
+        if not hasattr(self, '_lock'):
+            return
+        with self._lock:
+            for item in self.datasets:
+                if item.get('elevation_ds'):
+                    try: item['elevation_ds'].close()
+                    except Exception: pass
+                if item.get('attribution_ds'):
+                    try: item['attribution_ds'].close()
+                    except Exception: pass
+
     def __del__(self):
         try: self.close()
         except Exception: pass
+
 
     @staticmethod
     def _json(path):
