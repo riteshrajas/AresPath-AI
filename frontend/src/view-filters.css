@@ -586,7 +586,8 @@ body.cinematic-playing .terrain-legend,
 body.cinematic-playing .terrain-data-info,
 body.cinematic-playing .map-annotations,
 body.cinematic-playing .route-profile,
-body.cinematic-playing .camera-altitude {
+body.cinematic-playing .camera-altitude,
+body.cinematic-playing #fps-counter {
   visibility: hidden;
 }
 @media (max-width: 900px) {

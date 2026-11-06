@@ -37,6 +37,8 @@ const realTimeSky = createRealTimeSky(scene, camera, sun, ambient, inspection, a
 const terrainShadows = createTerrainShadows(renderer, scene, sun, ambient, inspection, turbo);
 const errorText = document.querySelector('#error');
 const loadingStatus = document.querySelector('#loading-status');
+const fpsCounter = document.querySelector('#fps-counter');
+let fpsFrames = 0, fpsLastTime = performance.now();
 const rangeText = document.querySelector('#range');
 let lastRangeText = '';
 const focusCameraPosition = new THREE.Vector3(Infinity, Infinity, Infinity);
@@ -428,6 +430,16 @@ renderer.setAnimationLoop(now => {
   if(cinematic.active)renderRelative(renderer,scene,camera);
   else renderer.render(scene, camera);
   navigation.update();
+  fpsFrames++;
+  const fpsElapsed = now - fpsLastTime;
+  if (fpsElapsed >= 500 && fpsCounter) {
+    const fps = Math.round((fpsFrames * 1000) / fpsElapsed);
+    const ms = (fpsElapsed / fpsFrames).toFixed(1);
+    fpsCounter.value = `${fps} FPS · ${ms} ms`;
+    fpsCounter.className = fps >= 50 ? 'good' : fps >= 30 ? 'warn' : 'low';
+    fpsFrames = 0;
+    fpsLastTime = now;
+  }
 });
 addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
 initialize().catch(error => { errorText.textContent = error.message; console.error(error); });

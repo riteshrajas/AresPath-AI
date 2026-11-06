@@ -6,6 +6,7 @@ export const VIEW_PRESETS = [
       "route-lines": false,
       "route-endpoints": false,
       compass: false,
+      "fps-counter": false,
     },
   },
   {
@@ -17,6 +18,7 @@ export const VIEW_PRESETS = [
       "scale-bar": true,
       "camera-altitude": true,
       compass: true,
+      "fps-counter": true,
     },
   },
   {
@@ -59,6 +61,7 @@ export const VIEW_PRESETS = [
       "route-lines": false,
       "route-endpoints": false,
       compass: false,
+      "fps-counter": false,
       exposure: 1.1,
       contrast: 1.1,
       saturation: 0.9,

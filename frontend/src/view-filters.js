@@ -339,6 +339,17 @@ export function createViewFilters({
     },
   );
   toggle(
+    "fps-counter",
+    "overlays",
+    "FPS counter",
+    "Live frame rate and frame time in the bottom-right corner.",
+    true,
+    (value) => {
+      const fps = document.querySelector("#fps-counter");
+      if (fps) fps.hidden = !value;
+    },
+  );
+  toggle(
     "data-info",
     "quality",
     "Visible source information",

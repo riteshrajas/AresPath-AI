@@ -28,11 +28,11 @@ Saved pins support naming the view-center point, fly-to, deletion, and optional
 map labels (up to 50). Pins and presets use `arespath.pins.v1` and
 `arespath.presets.v1` in localStorage. Storage failure leaves session-only entries
 with a visible explanation. Coordinates, approximate camera altitude, an
-approximate view-center scale bar, and a compass/north reference toggle are also
-available. Reference lines follow the surface shader; the scale bar uses two rays
-on a sphere at the center's sampled radius, and both the scale bar and camera
-altitude display hide when the camera is aimed at sky or terrain data is
-unavailable.
+approximate view-center scale bar, a compass/north reference toggle, and a live
+FPS / frame-time counter in the bottom-right corner are also available. Reference
+lines follow the surface shader; the scale bar uses two rays on a sphere at the
+center's sampled radius, and both the scale bar and camera altitude display hide
+when the camera is aimed at sky or terrain data is unavailable.
 
 ## Interpretation and performance
 
