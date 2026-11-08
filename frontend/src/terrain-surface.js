@@ -39,21 +39,40 @@ export function createTerrainNormalTexture(data) {
       const x0 = Math.max(0, x - 1), x1 = Math.min(cols - 1, x + 1);
       const y0 = Math.max(0, y - 1), y1 = Math.min(rows - 1, y + 1);
 
-      const hCenter = getHeight(x, y) ?? 0;
-      const hL = getHeight(x0, y) ?? hCenter;
-      const hR = getHeight(x1, y) ?? hCenter;
-      const hT = getHeight(x, y0) ?? hCenter;
-      const hB = getHeight(x, y1) ?? hCenter;
+      const hCenter = getHeight(x, y);
+      const offset = (texY * cols + x) * 4;
+      if (hCenter === null) {
+        pixels[offset]     = 128;
+        pixels[offset + 1] = 128;
+        pixels[offset + 2] = 255;
+        pixels[offset + 3] = 255;
+        continue;
+      }
+      const hL = getHeight(x0, y);
+      const hR = getHeight(x1, y);
+      const hT = getHeight(x, y0);
+      const hB = getHeight(x, y1);
 
-      const dz_dx = (x1 > x0) ? (hR - hL) / ((x1 - x0) * dx) : 0;
-      const dz_dy_north = (y1 > y0) ? (hT - hB) / ((y1 - y0) * dy) : 0;
+      const dz_dx = (hL !== null && hR !== null && x1 > x0)
+        ? (hR - hL) / ((x1 - x0) * dx)
+        : (hR !== null && x1 > x)
+          ? (hR - hCenter) / ((x1 - x) * dx)
+          : (hL !== null && x > x0)
+            ? (hCenter - hL) / ((x - x0) * dx)
+            : 0;
+      const dz_dy_north = (hT !== null && hB !== null && y1 > y0)
+        ? (hT - hB) / ((y1 - y0) * dy)
+        : (hT !== null && y > y0)
+          ? (hT - hCenter) / ((y - y0) * dy)
+          : (hB !== null && y1 > y)
+            ? (hCenter - hB) / ((y1 - y) * dy)
+            : 0;
 
       const nx = -dz_dx;
       const ny = -dz_dy_north;
       const nz = 1.0;
       const len = Math.hypot(nx, ny, nz);
 
-      const offset = (texY * cols + x) * 4;
       pixels[offset]     = Math.min(255, Math.max(0, Math.round((nx / len * 0.5 + 0.5) * 255)));
       pixels[offset + 1] = Math.min(255, Math.max(0, Math.round((ny / len * 0.5 + 0.5) * 255)));
       pixels[offset + 2] = Math.min(255, Math.max(0, Math.round((nz / len * 0.5 + 0.5) * 255)));
@@ -148,17 +167,60 @@ export function createTerrainSurface(data, texture, baseRadiusAt, innerMask = nu
     material.normalMap = normalTexture;
     material.normalMap.channel = 1;
     material.normalScale = new THREE.Vector2(1.0, 1.0);
+    normalTexture.userData.refs = (normalTexture.userData.refs || 0) + 1;
   }
-  const ownsNormalTexture = !cache?.normalTexture && !!normalTexture;
+  let materialDisposed = false;
   const originalDispose = material.dispose.bind(material);
   material.dispose = () => {
-    if (ownsNormalTexture) normalTexture?.dispose();
+    if (!materialDisposed) {
+      materialDisposed = true;
+      if (normalTexture) {
+        normalTexture.userData.refs = Math.max(0, (normalTexture.userData.refs || 0) - 1);
+        if (normalTexture.userData.refs === 0) normalTexture.dispose();
+      }
+    }
     originalDispose();
+  };
+  const applyTerrainNormalFrame = shader => {
+    shader.uniforms.uTerrainCenter = { value: center };
+    shader.vertexShader = `varying vec3 vTerrainEast;
+varying vec3 vTerrainNorth;
+varying vec3 vTerrainUp;
+uniform vec3 uTerrainCenter;
+` + shader.vertexShader;
+    shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      #ifdef USE_NORMALMAP_TANGENTSPACE
+        vec3 terrainWorldPos = position + uTerrainCenter;
+        vec3 terrainUp = normalize(terrainWorldPos);
+        vec3 terrainEast = (terrainUp.x * terrainUp.x + terrainUp.z * terrainUp.z) > 1e-12
+          ? normalize(vec3(terrainUp.z, 0.0, -terrainUp.x))
+          : vec3(0.0, 0.0, -1.0);
+        vec3 terrainNorth = normalize(cross(terrainUp, terrainEast));
+        vTerrainEast = normalize(normalMatrix * terrainEast);
+        vTerrainNorth = normalize(normalMatrix * terrainNorth);
+        vTerrainUp = normalize(normalMatrix * terrainUp);
+      #endif`);
+    shader.fragmentShader = `varying vec3 vTerrainEast;
+varying vec3 vTerrainNorth;
+varying vec3 vTerrainUp;
+` + shader.fragmentShader;
+    shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', `#ifdef USE_NORMALMAP_TANGENTSPACE
+      vec3 terrainMapN = texture2D(normalMap, vNormalMapUv).xyz * 2.0 - 1.0;
+      terrainMapN.xy *= normalScale;
+      mat3 terrainTbn = mat3(normalize(vTerrainEast), normalize(vTerrainNorth), normalize(vTerrainUp));
+      #ifdef DOUBLE_SIDED
+        terrainTbn *= faceDirection;
+      #endif
+      normal = normalize(terrainTbn * terrainMapN);
+    #else
+      #include <normal_fragment_maps>
+    #endif`);
   };
   const marsMaterialCompile = material.onBeforeCompile;
   material.onBeforeCompile = shader => {
     marsMaterialCompile(shader);
     applyTerrainLighting(shader);
+    if (normalTexture) applyTerrainNormalFrame(shader);
   };
   if (innerMask) {
     const compile = material.onBeforeCompile;

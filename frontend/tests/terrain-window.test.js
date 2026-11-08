@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import { planTerrainWindow, planOuterTerrainWindow, assembleTerrainWindow, fetchTerrainWindow, isTileVisible } from '../src/terrain-window.js';
+import { planTerrainWindow, planOuterTerrainWindow, assembleTerrainWindow, fetchTerrainWindow, isTileVisible, planVisibleMask } from '../src/terrain-window.js';
+import { planetPoint, SCALE } from '../src/globe-math.js';
 
 test('zoom selects finer level while dateline and pole tile requests stay valid', () => {
   const close = planTerrainWindow(138.35, -4.92, 1000), far = planTerrainWindow(138.35, -4.92, 300000);
@@ -179,3 +180,19 @@ test('isTileVisible accurately performs spherical horizon and camera frustum cul
   assert.equal(isTileVisible(backTile, camera), false);
 });
 
+test('isTileVisible honors non-zero elevation slabs for basins and peaks', () => {
+  for (const [lon, lat, radius] of [[70, -42, 3388000], [-133.8, 18.65, 3417000]]) {
+    const plan = planTerrainWindow(lon, lat, 500);
+    const primary = plan.tiles.find(t => t.column === plan.centerColumn && t.row === plan.centerRow);
+    const target = new THREE.Vector3(...planetPoint(lon, lat, radius));
+    const up = target.clone().normalize();
+    const camera = new THREE.PerspectiveCamera(45, 16 / 9, 0.000001, 30000);
+    camera.up.copy(up);
+    camera.position.copy(target).addScaledVector(up, 500 * SCALE);
+    camera.lookAt(target);
+    camera.updateMatrixWorld(true);
+    assert.equal(isTileVisible(primary, camera, { minRadiusMeters: radius - 3500, maxRadiusMeters: radius + 3500 }), true);
+    const mask = planVisibleMask(plan, { camera, radiusMeters: radius, minRing: 1 }, () => radius);
+    assert.equal(mask.filter(Boolean).length, plan.tiles.length);
+  }
+});

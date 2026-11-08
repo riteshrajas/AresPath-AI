@@ -43,3 +43,19 @@ test('live sky retains catalog sunlight direction and fill levels', () => {
   assert.equal(ambient.intensity, .08);
   assert.equal(inspection.intensity, 0);
 });
+
+test('shadow map invalidates when render-relative origin shifts', () => {
+  const renderer = { shadowMap: {} }, scene = new THREE.Scene();
+  const sun = new THREE.DirectionalLight(), ambient = new THREE.AmbientLight(), inspection = new THREE.DirectionalLight();
+  const controller = createTerrainShadows(renderer, scene, sun, ambient, inspection, true);
+  const target = new THREE.Vector3(280, 0, 0);
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry());
+  const origin = new THREE.Vector3(280, 0, 0);
+  terrainShading.value = 1;
+  controller.update({ terrain: { mesh }, target, range: 2000, origin });
+  renderer.shadowMap.needsUpdate = false;
+  controller.update({ terrain: { mesh }, target, range: 2000, origin });
+  assert.equal(renderer.shadowMap.needsUpdate, false);
+  controller.update({ terrain: { mesh }, target, range: 2000, origin: new THREE.Vector3(281, 0, 0) });
+  assert.equal(renderer.shadowMap.needsUpdate, true);
+});

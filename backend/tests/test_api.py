@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import numpy as np
@@ -9,11 +10,12 @@ from backend.app.main import create_app
 from backend.app.terrain import tile_bounds, contains, geodetic_crs, sample_native_cells, sample_global_display_cells
 
 ROOT = Path(__file__).resolve().parents[2]
+DATA_ROOT = Path(os.environ.get('ARESPATH_DATA_ROOT') or (ROOT / 'data'))
 
 
 @pytest.fixture(scope='module')
 def client():
-    return TestClient(create_app(ROOT/'data'))
+    return TestClient(create_app(DATA_ROOT))
 
 
 def test_catalog_and_missing_data_are_explicit(client, tmp_path):
@@ -80,7 +82,7 @@ def test_display_interpolation_uses_pixel_centers_and_respects_masks_and_edges()
 
 def test_real_native_height_and_provenance(client):
     # Compare the API to a real prepared raster cell, independently of sampler.
-    with rasterio.open(ROOT/'data/verified_terrain/gale/elevation.tif') as ds:
+    with rasterio.open(DATA_ROOT/'verified_terrain/gale/elevation.tif') as ds:
         x,y=ds.xy(ds.height//2,ds.width//2)
         from rasterio.warp import transform
         lon,lat=transform(ds.crs,geodetic_crs(ds.crs),[x],[y])
@@ -89,12 +91,12 @@ def test_real_native_height_and_provenance(client):
     assert result['selected_source']['id']==2
     assert result['height_above_areoid_m']==pytest.approx(expected,abs=.0001)
     global_point=client.get('/api/v1/coverage?longitude=0&latitude=0').json()
-    expected_kind = 'HRSC/MOLA' if (ROOT/'data/verified_terrain/global-200m/manifest.json').exists() else 'MOLA'
+    expected_kind = 'HRSC/MOLA' if (DATA_ROOT/'verified_terrain/global-200m/manifest.json').exists() else 'MOLA'
     assert global_point['selected_source']['kind']==expected_kind
 
 
 def test_global_native_height_and_polar_fallback(client):
-    path = ROOT/'data/verified_terrain/global-200m/elevation.tif'
+    path = DATA_ROOT/'verified_terrain/global-200m/elevation.tif'
     if not (path.parent/'manifest.json').exists():
         pytest.skip('Run pipeline/prepare_global_terrain.py to test the real global product')
     lon,lat=-11.692614292831884,-50.49574316920751
@@ -162,7 +164,7 @@ def test_terrain_store_lifecycle_and_leak_prevention():
     import weakref
     from backend.app.terrain import TerrainStore
 
-    store = TerrainStore(ROOT/'data')
+    store = TerrainStore(DATA_ROOT)
     assert hasattr(store, '_lock')
     assert len(store.datasets) > 0
 

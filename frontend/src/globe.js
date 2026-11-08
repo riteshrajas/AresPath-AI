@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { SCALE, sampleMola, planetPoint } from './globe-math.js';
 import { TerrainClient } from './terrain-client.js';
-import { planTerrainWindow, planOuterTerrainWindow, fetchTerrainWindow } from './terrain-window.js';
+import { planTerrainWindow, planOuterTerrainWindow, fetchTerrainWindow, planVisibleMask } from './terrain-window.js';
 import { createTerrainSurface, contextRadiusAt } from './terrain-surface.js';
 import { marsMaterial, gradeMarsColor } from './mars-material.js';
 import { createRealTimeSky } from './real-time-sky.js';
@@ -53,9 +53,12 @@ const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain, contextTerrain;
 let cinematic;
 let cinematicPreviousLocal;
-let wasRelativeRender = false;
+let wasRelativeRender = false, hasRelativeAnchor = false;
+const relativeAnchor = new THREE.Vector3();
 let contextPending, contextLoadedKey = '', contextRequestedKey = '', contextRetryAt = 0, contextFailed = false;
+let contextLoadedMask = [];
 let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
+let loadedMask = [];
 let autoFocusPending = false, autoFocusRetryAt = 0;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 const innerMask = new THREE.Vector4(0, 0, 0, 0);
@@ -133,9 +136,10 @@ function clearTerrain() {
   innerMask.set(0, 0, 0, 0);
   if (!contextTerrain) mask.set(0, 0, 0, 0);
   loadedKey = '';
+  loadedMask = [];
 }
 function clearContext() {
-  contextPending?.abort(); contextRequestedKey = ''; contextLoadedKey = ''; contextRetryAt = 0; contextFailed = false;
+  contextPending?.abort(); contextRequestedKey = ''; contextLoadedKey = ''; contextLoadedMask = []; contextRetryAt = 0; contextFailed = false;
   if (contextTerrain) { scene.remove(contextTerrain.mesh); contextTerrain.mesh.geometry.dispose(); contextTerrain.mesh.material.dispose(); contextTerrain = null; }
   if (terrain) mask.set(...terrain.data.bounds); else mask.set(0, 0, 0, 0);
 }
@@ -166,13 +170,14 @@ function setTerrainReadyStatus() {
 }
 function reset() {
   cinematic?.cancel();
-  selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
+  selection++; local = null; hasRelativeAnchor = false; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
   inspection.intensity = 0; errorText.textContent = '';
   setLoadingStatus('Mars globe ready', 'ready');
   fly(new THREE.Vector3(0, 180, 1020), new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
 }
 async function explore(longitude, latitude, label = 'Selected location', range = 30000, preserveView = false) {
   cinematic?.cancel();
+  hasRelativeAnchor = false;
   focusCameraPosition.set(Infinity, Infinity, Infinity);
   const token = ++selection; pending?.abort(); requestedKey = ''; retryAt = 0; clearContext();
   errorText.textContent = '';
@@ -286,9 +291,19 @@ async function updateTerrain(now) {
   followCameraTile(plan);
   plan = planTerrainWindow(local.longitude, local.latitude, range, camera.aspect, camera.fov);
   updateContext(plan);
-  if (plan.key === loadedKey || plan.key === requestedKey) return;
-  pending?.abort(); const controller = new AbortController(); pending = controller; requestedKey = plan.key;
-  setLoadingStatus(`Loading terrain · 0/${plan.tiles.length} tiles · LOD ${plan.z}`, 'loading');
+  const fallback = (lon, lat) => sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m);
+  const radiusMeters = local?.coverage?.planetary_radius_m || fallback(local.longitude, local.latitude);
+  const minRing = plan.ring <= 1 || plan.z >= 10 ? 1 : 0;
+  const visibleMask = planVisibleMask(plan, { camera, radiusMeters, minRing }, fallback);
+  const samePlan = plan.key === loadedKey;
+  const wantedMask = samePlan ? visibleMask.map((v, i) => v || !!loadedMask[i]) : visibleMask;
+  const needsNewTiles = !samePlan || visibleMask.some((v, i) => v && !loadedMask[i]);
+  const requestSignature = `${plan.key}:${wantedMask.map(Number).join('')}`;
+  if (!needsNewTiles || requestSignature === requestedKey) return;
+  const previousLoadedMask = samePlan ? loadedMask : [];
+  pending?.abort(); const controller = new AbortController(); pending = controller; requestedKey = requestSignature;
+  const totalToFetch = wantedMask.filter(Boolean).length;
+  setLoadingStatus(`Loading terrain · 0/${totalToFetch} tiles · LOD ${plan.z}`, 'loading');
   try {
     const publishPartial = data => {
       if (controller.signal.aborted || !local || !data) return;
@@ -297,16 +312,16 @@ async function updateTerrain(now) {
     };
     const data = await fetchTerrainWindow(api, plan, controller.signal, (done, total) => {
       if (!controller.signal.aborted) setLoadingStatus(`Loading terrain · ${done}/${total} tiles · LOD ${plan.z}`, 'loading');
-    }, partial => publishPartial(partial), (lon, lat) =>
-      sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m), { camera });
+    }, partial => { if (!samePlan) publishPartial(partial); }, fallback, { visibleMask: wantedMask });
     if (controller.signal.aborted || !local) return;
     const next = createTerrainSurface(data, texture, innerBaseRadius); clearTerrain();
     // Leave the coarse globe beneath the visual collar. Masking through its
     // outside edge exposes tiny cracks where curved edges cross coarse faces.
-    terrain = next; scene.add(next.mesh); loadedKey = plan.key; setWindowMasks(data);
+    terrain = next; scene.add(next.mesh); loadedKey = plan.key; loadedMask = wantedMask; setWindowMasks(data);
     errorText.textContent = '';
     setTerrainReadyStatus();
   } catch (error) {
+    if (samePlan && terrain) { loadedKey = plan.key; loadedMask = previousLoadedMask; }
     if (error.name !== 'AbortError' && !controller.signal.aborted) {
       errorText.textContent = `Terrain unavailable: ${error.message}. Existing terrain remains visible.`; retryAt = performance.now() + 10000;
       setLoadingStatus('Terrain load paused · retrying', 'loading');
@@ -315,23 +330,30 @@ async function updateTerrain(now) {
 }
 async function updateContext(plan) {
   const contextPlan = planOuterTerrainWindow(plan);
-  if (!contextPlan || performance.now() < contextRetryAt || contextPlan.key === contextLoadedKey || contextPlan.key === contextRequestedKey) return;
+  if (!contextPlan || performance.now() < contextRetryAt) return;
+  const fallback = (lon, lat) => sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m);
+  const radiusMeters = local?.coverage?.planetary_radius_m || fallback(local.longitude, local.latitude);
+  const visibleMask = planVisibleMask(contextPlan, { camera, radiusMeters, minRing: 0 }, fallback);
+  const samePlan = contextPlan.key === contextLoadedKey;
+  const wantedMask = samePlan ? visibleMask.map((v, i) => v || !!contextLoadedMask[i]) : visibleMask;
+  const needsNewTiles = !samePlan || visibleMask.some((v, i) => v && !contextLoadedMask[i]);
+  const requestSignature = `${contextPlan.key}:${wantedMask.map(Number).join('')}`;
+  if (!needsNewTiles || requestSignature === contextRequestedKey) return;
   contextPending?.abort();
-  const controller = new AbortController(); contextPending = controller; contextRequestedKey = contextPlan.key;
+  const controller = new AbortController(); contextPending = controller; contextRequestedKey = requestSignature;
   try {
-    const data = await fetchTerrainWindow(api, contextPlan, controller.signal, () => {}, () => {}, (lon, lat) =>
-      sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m), { camera });
+    const data = await fetchTerrainWindow(api, contextPlan, controller.signal, () => {}, () => {}, fallback, { visibleMask: wantedMask });
     if (controller.signal.aborted || !local) return;
     const next = createTerrainSurface(data, texture, baseRadiusAt, innerMask);
     if (contextTerrain) { scene.remove(contextTerrain.mesh); contextTerrain.mesh.geometry.dispose(); contextTerrain.mesh.material.dispose(); }
-    contextTerrain = next; scene.add(next.mesh); contextLoadedKey = contextPlan.key;
+    contextTerrain = next; scene.add(next.mesh); contextLoadedKey = contextPlan.key; contextLoadedMask = wantedMask;
     contextFailed = false;
     if (terrain) {
-      const existing = terrain.data, previousKey = loadedKey;
+      const existing = terrain.data, previousKey = loadedKey, previousMask = loadedMask;
       const cached = { occlusion: terrain.occlusion, analysis: terrain.analysis, normalTexture: terrain.normalTexture };
       const replacement = createTerrainSurface(existing, texture, innerBaseRadius, null, cached);
       scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); terrain.mesh.material.dispose();
-      terrain = replacement; scene.add(replacement.mesh); loadedKey = previousKey; setWindowMasks(existing);
+      terrain = replacement; scene.add(replacement.mesh); loadedKey = previousKey; loadedMask = previousMask; setWindowMasks(existing);
     } else mask.set(...data.bounds);
   } catch (error) {
     if (error.name !== 'AbortError' && !controller.signal.aborted) {
@@ -410,7 +432,7 @@ renderer.setAnimationLoop(now => {
     if (t === 1) { const target = flight.endTarget; flight = null; makeControls(target); }
   } else controls.update();
   if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
-    selection++; local = null; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
+    selection++; local = null; hasRelativeAnchor = false; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
     inspection.intensity = 0;
     camera.up.set(0, 1, 0); makeControls();
   }
@@ -436,15 +458,30 @@ renderer.setAnimationLoop(now => {
     : `${(rangeMeters / 1000).toFixed(1)} km view range`;
   if (nextRangeText !== lastRangeText) { rangeText.textContent = nextRangeText; lastRangeText = nextRangeText; }
   focusFromZoom(now); updateTerrain(now); realTimeSky.update();
+  const shouldRenderRelative = cinematic.active || (Boolean(local) && !flight);
+  let renderOrigin = null;
+  if (shouldRenderRelative) {
+    if (cinematic.active) {
+      renderOrigin = camera.position;
+      hasRelativeAnchor = false;
+    } else {
+      if (!hasRelativeAnchor || relativeAnchor.distanceToSquared(controls.target) > 0.0004) {
+        relativeAnchor.copy(controls.target);
+        hasRelativeAnchor = true;
+      }
+      renderOrigin = relativeAnchor;
+    }
+  } else {
+    hasRelativeAnchor = false;
+  }
   terrainShadows.update({ terrain, context: contextTerrain, target: controls.target, range: rangeMeters,
-    liveSun: document.querySelector('#rt-toggle').getAttribute('aria-pressed') === 'true' });
+    liveSun: document.querySelector('#rt-toggle').getAttribute('aria-pressed') === 'true', origin: renderOrigin });
   viewFilters.update(now);
   places.update(now);
   routePlanner.update();
-  const shouldRenderRelative = cinematic.active || (Boolean(local) && !flight);
   if (wasRelativeRender !== shouldRenderRelative) renderer.shadowMap.needsUpdate = true;
   wasRelativeRender = shouldRenderRelative;
-  if (shouldRenderRelative) renderRelative(renderer, scene, camera);
+  if (shouldRenderRelative) renderRelative(renderer, scene, camera, renderOrigin);
   else renderer.render(scene, camera);
   navigation.update();
   fpsFrames++;

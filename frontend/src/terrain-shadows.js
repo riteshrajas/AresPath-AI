@@ -16,7 +16,7 @@ export function createTerrainShadows(renderer, scene, sun, ambient, inspection, 
   const direction = new THREE.Vector3(), normal = new THREE.Vector3();
   const east = new THREE.Vector3(), north = new THREE.Vector3();
   let previousKey = '';
-  return { update({ terrain, context, target, range, liveSun = false }) {
+  return { update({ terrain, context, target, range, liveSun = false, origin = null }) {
     const active = !!terrain && terrainShading.value === 1 && lightingPreferences.shadows;
     sun.castShadow = active;
     if (terrain) { terrain.mesh.castShadow = active; terrain.mesh.receiveShadow = active; }
@@ -53,7 +53,7 @@ export function createTerrainShadows(renderer, scene, sun, ambient, inspection, 
     shadowCamera.updateProjectionMatrix();
     sun.shadow.normalBias = extent / sun.shadow.mapSize.x * .8;
     const key = [terrain.mesh.geometry.uuid, context?.mesh.geometry.uuid, extent,
-      ...target.toArray(), ...direction.toArray()].join('/');
+      ...target.toArray(), ...direction.toArray(), ...(origin ? origin.toArray() : [0, 0, 0])].join('/');
     if (key !== previousKey) {
       renderer.shadowMap.needsUpdate = true;
       previousKey = key;

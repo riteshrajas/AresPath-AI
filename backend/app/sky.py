@@ -1,24 +1,29 @@
 """Offline SPICE sky directions in Mars body-fixed coordinates."""
 import json
+import os
 import threading
 from datetime import datetime, timezone
 from functools import lru_cache
 from pathlib import Path
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2] / 'data' / 'sky'
+DEFAULT_DATA_ROOT = Path(__file__).resolve().parents[2] / 'data'
+def sky_root() -> Path:
+    return Path(os.environ.get('ARESPATH_DATA_ROOT') or DEFAULT_DATA_ROOT).resolve() / 'sky'
+ROOT = sky_root()
 LOCK = threading.Lock()
 
 @lru_cache(maxsize=1)
 def catalog():
-    return json.loads((ROOT / 'stars.json').read_text())
+    return json.loads((sky_root() / 'stars.json').read_text())
 
 @lru_cache(maxsize=8)
 def snapshot(minute):
     import spiceypy as spice
+    root = sky_root()
     with LOCK:
         for name in ('naif0012.tls', 'pck00011.tpc', 'de440s.bsp'):
-            spice.furnsh(str(ROOT / name))
+            spice.furnsh(str(root / name))
         try:
             utc = datetime.fromtimestamp(minute * 60, timezone.utc).isoformat()
             et = spice.str2et(datetime.fromtimestamp(minute * 60, timezone.utc).strftime('%Y-%m-%dT%H:%M:%S'))

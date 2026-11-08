@@ -2,38 +2,88 @@ import * as THREE from 'three';
 import { pointToTile } from './terrain-client.js';
 import { planetPoint, SCALE } from './globe-math.js';
 
-export function isTileVisible(tile, camera, radiusMeters = 3396000) {
+export function isTileVisible(tile, camera, radiusOrBounds = 3396000) {
   if (!camera) return true;
   const n = 2 ** tile.z;
   const lonMin = -180 + 360 * tile.x / n;
   const lonMax = -180 + 360 * (tile.x + 1) / n;
   const latMax = 90 - 180 * tile.y / n;
   const latMin = 90 - 180 * (tile.y + 1) / n;
-
-  const points = [
+  const minR = typeof radiusOrBounds === 'number'
+    ? radiusOrBounds
+    : (radiusOrBounds?.minRadiusMeters ?? radiusOrBounds?.radiusMeters ?? 3396000);
+  const maxR = typeof radiusOrBounds === 'number'
+    ? radiusOrBounds
+    : (radiusOrBounds?.maxRadiusMeters ?? radiusOrBounds?.radiusMeters ?? minR);
+  const midR = (minR + maxR) * 0.5;
+  const corners = [
     [lonMin, latMin],
     [lonMax, latMin],
     [lonMin, latMax],
-    [lonMax, latMax],
-    [(lonMin + lonMax) / 2, (latMin + latMax) / 2]
-  ].map(([lon, lat]) => new THREE.Vector3(...planetPoint(lon, lat, radiusMeters)));
+    [lonMax, latMax]
+  ];
+  const points = [];
+  for (const [lon, lat] of corners) {
+    points.push(new THREE.Vector3(...planetPoint(lon, lat, minR)));
+    if (maxR !== minR) points.push(new THREE.Vector3(...planetPoint(lon, lat, maxR)));
+  }
+  const center = new THREE.Vector3(...planetPoint((lonMin + lonMax) / 2, (latMin + latMax) / 2, midR));
+  points.push(center);
 
-  // Spherical horizon culling (generous margin preserves silhouettes near horizon)
-  const rSq = (radiusMeters * SCALE) ** 2;
-  const overHorizon = points.some(p => p.dot(camera.position) >= 0.94 * rSq);
+  // Spherical horizon culling using each sample point's actual planetary radius
+  const overHorizon = points.some(p => p.dot(camera.position) >= 0.94 * p.lengthSq());
   if (!overHorizon) return false;
 
-  // Frustum intersection test
+  // Frustum intersection test over the 3D radial slab [minR, maxR]
   camera.updateMatrixWorld();
   const projScreenMatrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
   const frustum = new THREE.Frustum().setFromProjectionMatrix(projScreenMatrix);
-  const center = points[4];
   let maxDistSq = 0;
-  for (let i = 0; i < 4; i++) {
-    maxDistSq = Math.max(maxDistSq, center.distanceToSquared(points[i]));
+  for (const p of points) {
+    maxDistSq = Math.max(maxDistSq, center.distanceToSquared(p));
   }
   const boundingSphere = new THREE.Sphere(center, Math.sqrt(maxDistSq) * 1.35);
   return frustum.intersectsSphere(boundingSphere);
+}
+
+function tileRadiusBounds(tile, defaultRadius, fallbackRadiusAt) {
+  let minR = defaultRadius;
+  let maxR = defaultRadius;
+  if (fallbackRadiusAt) {
+    const n = 2 ** tile.z;
+    const lonMin = -180 + 360 * tile.x / n;
+    const lonMax = -180 + 360 * (tile.x + 1) / n;
+    const latMax = 90 - 180 * tile.y / n;
+    const latMin = 90 - 180 * (tile.y + 1) / n;
+    const samples = [
+      fallbackRadiusAt(lonMin, latMin),
+      fallbackRadiusAt(lonMax, latMin),
+      fallbackRadiusAt(lonMin, latMax),
+      fallbackRadiusAt(lonMax, latMax),
+      fallbackRadiusAt((lonMin + lonMax) / 2, (latMin + latMax) / 2)
+    ].filter(Number.isFinite);
+    if (samples.length) {
+      minR = Math.min(...samples);
+      maxR = Math.max(...samples);
+    }
+  }
+  return { minRadiusMeters: minR - 3500, maxRadiusMeters: maxR + 3500 };
+}
+
+export function planVisibleMask(plan, options = {}, fallbackRadiusAt = null) {
+  const centerColumn = plan.centerColumn ?? (plan.columns - 1) / 2;
+  const centerRow = plan.centerRow ?? (plan.rows - 1) / 2;
+  const camera = options?.camera;
+  const radiusMeters = options?.radiusMeters || 3396000;
+  const cull = options?.cull ?? Boolean(camera);
+  const minRing = options?.minRing ?? 0;
+  return plan.tiles.map(tile => {
+    const dx = Math.abs(tile.column - centerColumn);
+    const dy = Math.abs(tile.row - centerRow);
+    const keepCore = (dx === 0 && dy === 0) || Math.max(dx, dy) <= minRing;
+    if (!cull || keepCore) return true;
+    return isTileVisible(tile, camera, tileRadiusBounds(tile, radiusMeters, fallbackRadiusAt));
+  });
 }
 
 export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, fov = 45) {
@@ -133,13 +183,10 @@ export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {
   // Request the center and nearest tiles first, but keep result indices in
   // geographic order for assembly even when requests complete out of order.
   const centerColumn = plan.centerColumn ?? (plan.columns - 1) / 2, centerRow = plan.centerRow ?? (plan.rows - 1) / 2;
-  const camera = options?.camera;
-  const radiusMeters = options?.radiusMeters || 3396000;
-  const cull = options?.cull ?? Boolean(camera);
+  const visibleMask = options?.visibleMask || planVisibleMask(plan, options, fallbackRadiusAt);
 
   const order = plan.tiles.map((tile, index) => {
-    const isPrimary = tile.column === centerColumn && tile.row === centerRow;
-    const visible = !cull || isPrimary || isTileVisible(tile, camera, radiusMeters);
+    const visible = Boolean(visibleMask[index]);
     return {
       index,
       visible,
