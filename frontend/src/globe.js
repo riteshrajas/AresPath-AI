@@ -298,7 +298,7 @@ async function updateTerrain(now) {
     const data = await fetchTerrainWindow(api, plan, controller.signal, (done, total) => {
       if (!controller.signal.aborted) setLoadingStatus(`Loading terrain · ${done}/${total} tiles · LOD ${plan.z}`, 'loading');
     }, partial => publishPartial(partial), (lon, lat) =>
-      sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m));
+      sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m), { camera });
     if (controller.signal.aborted || !local) return;
     const next = createTerrainSurface(data, texture, innerBaseRadius); clearTerrain();
     // Leave the coarse globe beneath the visual collar. Masking through its
@@ -319,7 +319,8 @@ async function updateContext(plan) {
   contextPending?.abort();
   const controller = new AbortController(); contextPending = controller; contextRequestedKey = contextPlan.key;
   try {
-    const data = await fetchTerrainWindow(api, contextPlan, controller.signal);
+    const data = await fetchTerrainWindow(api, contextPlan, controller.signal, () => {}, () => {}, (lon, lat) =>
+      sampleMola(radiusGrid, mola.width, mola.height, lon, lat, mola.offset_m), { camera });
     if (controller.signal.aborted || !local) return;
     const next = createTerrainSurface(data, texture, baseRadiusAt, innerMask);
     if (contextTerrain) { scene.remove(contextTerrain.mesh); contextTerrain.mesh.geometry.dispose(); contextTerrain.mesh.material.dispose(); }
@@ -327,7 +328,7 @@ async function updateContext(plan) {
     contextFailed = false;
     if (terrain) {
       const existing = terrain.data, previousKey = loadedKey;
-      const cached = { occlusion: terrain.occlusion, analysis: terrain.analysis };
+      const cached = { occlusion: terrain.occlusion, analysis: terrain.analysis, normalTexture: terrain.normalTexture };
       const replacement = createTerrainSurface(existing, texture, innerBaseRadius, null, cached);
       scene.remove(terrain.mesh); terrain.mesh.geometry.dispose(); terrain.mesh.material.dispose();
       terrain = replacement; scene.add(replacement.mesh); loadedKey = previousKey; setWindowMasks(existing);
@@ -440,9 +441,10 @@ renderer.setAnimationLoop(now => {
   viewFilters.update(now);
   places.update(now);
   routePlanner.update();
-  if(wasRelativeRender!==cinematic.active) renderer.shadowMap.needsUpdate=true;
-  wasRelativeRender=cinematic.active;
-  if(cinematic.active)renderRelative(renderer,scene,camera);
+  const shouldRenderRelative = cinematic.active || (Boolean(local) && !flight);
+  if (wasRelativeRender !== shouldRenderRelative) renderer.shadowMap.needsUpdate = true;
+  wasRelativeRender = shouldRenderRelative;
+  if (shouldRenderRelative) renderRelative(renderer, scene, camera);
   else renderer.render(scene, camera);
   navigation.update();
   fpsFrames++;

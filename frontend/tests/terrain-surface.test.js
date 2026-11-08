@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { contextRadiusAt } from '../src/terrain-surface.js';
+import { contextRadiusAt, createTerrainNormalTexture, createTerrainSurface } from '../src/terrain-surface.js';
 
 test('context radius interpolates the wider grid and wraps the dateline', () => {
   const data = { bounds:[170, -10, 190, 10], cols:2, rows:2,
@@ -11,4 +11,56 @@ test('context radius interpolates the wider grid and wraps the dateline', () => 
   assert.equal(contextRadiusAt(data, 0, 0, fallback), -1);
   assert.equal(contextRadiusAt(data, 170, 10, fallback), 100);
   assert.equal(contextRadiusAt(data, -170, -10, fallback), 400);
+});
+
+test('createTerrainNormalTexture derives tangent-space normal maps from elevation differences', () => {
+  const flatData = {
+    rows: 3, cols: 3,
+    bounds: [0, 0, 0.01, 0.01],
+    radii: new Float64Array(9).fill(3396000),
+    heights: new Float64Array(9).fill(100),
+    measured: new Uint8Array(9).fill(1)
+  };
+  const flatTex = createTerrainNormalTexture(flatData);
+  assert.equal(flatTex.channel, 1);
+  assert.equal(flatTex.image.width, 3);
+  assert.equal(flatTex.image.height, 3);
+  const centerIdx = (1 * 3 + 1) * 4;
+  assert.equal(flatTex.image.data[centerIdx], 128);
+  assert.equal(flatTex.image.data[centerIdx + 1], 128);
+  assert.equal(flatTex.image.data[centerIdx + 2], 255);
+  flatTex.dispose();
+
+  const slopeData = {
+    rows: 3, cols: 3,
+    bounds: [0, 0, 0.01, 0.01],
+    radii: new Float64Array(9).fill(3396000),
+    heights: new Float64Array([
+      0, 50, 100,
+      0, 50, 100,
+      0, 50, 100
+    ]),
+    measured: new Uint8Array(9).fill(1)
+  };
+  const slopeTex = createTerrainNormalTexture(slopeData);
+  const slopeCenterIdx = (1 * 3 + 1) * 4;
+  assert.ok(slopeTex.image.data[slopeCenterIdx] < 128, 'Nx tilts West for Eastward slope');
+  assert.equal(slopeTex.image.data[slopeCenterIdx + 1], 128, 'Ny is flat in North-South axis');
+  slopeTex.dispose();
+});
+
+test('createTerrainSurface equips geometry with local UVs (uv1) and normalMap', () => {
+  const data = {
+    rows: 2, cols: 2,
+    bounds: [0, 0, 0.01, 0.01],
+    radii: new Float64Array(4).fill(3396000),
+    heights: new Float64Array(4).fill(0),
+    measured: new Uint8Array(4).fill(1)
+  };
+  const surface = createTerrainSurface(data, null, () => 3396000);
+  assert.ok(surface.mesh.geometry.hasAttribute('uv1'), 'geometry contains uv1 attribute for normal mapping');
+  assert.ok(surface.mesh.material.normalMap, 'material has normalMap attached');
+  assert.equal(surface.mesh.material.normalMap.channel, 1);
+  surface.mesh.geometry.dispose();
+  surface.mesh.material.dispose();
 });

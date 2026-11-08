@@ -1,4 +1,40 @@
+import * as THREE from 'three';
 import { pointToTile } from './terrain-client.js';
+import { planetPoint, SCALE } from './globe-math.js';
+
+export function isTileVisible(tile, camera, radiusMeters = 3396000) {
+  if (!camera) return true;
+  const n = 2 ** tile.z;
+  const lonMin = -180 + 360 * tile.x / n;
+  const lonMax = -180 + 360 * (tile.x + 1) / n;
+  const latMax = 90 - 180 * tile.y / n;
+  const latMin = 90 - 180 * (tile.y + 1) / n;
+
+  const points = [
+    [lonMin, latMin],
+    [lonMax, latMin],
+    [lonMin, latMax],
+    [lonMax, latMax],
+    [(lonMin + lonMax) / 2, (latMin + latMax) / 2]
+  ].map(([lon, lat]) => new THREE.Vector3(...planetPoint(lon, lat, radiusMeters)));
+
+  // Spherical horizon culling (generous margin preserves silhouettes near horizon)
+  const rSq = (radiusMeters * SCALE) ** 2;
+  const overHorizon = points.some(p => p.dot(camera.position) >= 0.94 * rSq);
+  if (!overHorizon) return false;
+
+  // Frustum intersection test
+  camera.updateMatrixWorld();
+  const projScreenMatrix = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+  const frustum = new THREE.Frustum().setFromProjectionMatrix(projScreenMatrix);
+  const center = points[4];
+  let maxDistSq = 0;
+  for (let i = 0; i < 4; i++) {
+    maxDistSq = Math.max(maxDistSq, center.distanceToSquared(points[i]));
+  }
+  const boundingSphere = new THREE.Sphere(center, Math.sqrt(maxDistSq) * 1.35);
+  return frustum.intersectsSphere(boundingSphere);
+}
 
 export function planTerrainWindow(longitude, latitude, rangeMeters, aspect = 1, fov = 45) {
   const visibleWidth = Math.max(100, 2 * rangeMeters * Math.tan(fov * Math.PI / 360) * Math.max(1, aspect));
@@ -90,16 +126,31 @@ export function assembleTerrainWindow(plan, tiles, fallbackRadiusAt) {
   return { rows, cols, radii, heights, sources, measured, sourceMetadata: [...metadata.values()], bounds: plan.bounds, z: plan.z };
 }
 
-export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {}, onPartial = () => {}, fallbackRadiusAt) {
+export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {}, onPartial = () => {}, fallbackRadiusAt, options = {}) {
   if (signal.aborted) throw new DOMException('Terrain request canceled', 'AbortError');
   const results = new Array(plan.tiles.length);
   let next = 0, completed = 0, stopped = false;
   // Request the center and nearest tiles first, but keep result indices in
   // geographic order for assembly even when requests complete out of order.
   const centerColumn = plan.centerColumn ?? (plan.columns - 1) / 2, centerRow = plan.centerRow ?? (plan.rows - 1) / 2;
-  const order = plan.tiles.map((tile, index) => ({ index, distance:
-    (tile.column - centerColumn) ** 2 + (tile.row - centerRow) ** 2 }))
-    .sort((a, b) => a.distance - b.distance).map(item => item.index);
+  const camera = options?.camera;
+  const radiusMeters = options?.radiusMeters || 3396000;
+  const cull = options?.cull ?? Boolean(camera);
+
+  const order = plan.tiles.map((tile, index) => {
+    const isPrimary = tile.column === centerColumn && tile.row === centerRow;
+    const visible = !cull || isPrimary || isTileVisible(tile, camera, radiusMeters);
+    return {
+      index,
+      visible,
+      distance: (tile.column - centerColumn) ** 2 + (tile.row - centerRow) ** 2
+    };
+  })
+  .filter(item => item.visible)
+  .sort((a, b) => a.distance - b.distance)
+  .map(item => item.index);
+
+  const totalToFetch = order.length;
   // Request the visible ring in parallel. The API and browser cache still
   // bound the total work, while the old three-at-a-time queue made every
   // refinement wait behind three serial batches.
@@ -111,11 +162,11 @@ export async function fetchTerrainWindow(api, plan, signal, onProgress = () => {
         if (stopped || signal.aborted) return;
         results[index] = result;
         const done = ++completed;
-        onProgress(done, plan.tiles.length);
+        onProgress(done, totalToFetch);
         // The caller renders the final result itself. Limit intermediate
         // full-mesh rebuilds while still displaying early arrivals.
-        if (done < plan.tiles.length && (done === 1 || done % 6 === 0))
-          onPartial(assembleTerrainWindow(plan, results, fallbackRadiusAt), done, plan.tiles.length);
+        if (done < totalToFetch && (done === 1 || done % 6 === 0))
+          onPartial(assembleTerrainWindow(plan, results, fallbackRadiusAt), done, totalToFetch);
       }
     } catch (error) { stopped = true; throw error; }
   }));

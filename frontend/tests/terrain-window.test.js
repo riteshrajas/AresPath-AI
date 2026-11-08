@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { planTerrainWindow, planOuterTerrainWindow, assembleTerrainWindow, fetchTerrainWindow } from '../src/terrain-window.js';
+import * as THREE from 'three';
+import { planTerrainWindow, planOuterTerrainWindow, assembleTerrainWindow, fetchTerrainWindow, isTileVisible } from '../src/terrain-window.js';
 
 test('zoom selects finer level while dateline and pole tile requests stay valid', () => {
   const close = planTerrainWindow(138.35, -4.92, 1000), far = planTerrainWindow(138.35, -4.92, 300000);
@@ -162,3 +163,19 @@ test('aborted or failed requests never publish late partial terrain', async () =
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(progress, 0); assert.equal(partials, 0);
 });
+
+test('isTileVisible accurately performs spherical horizon and camera frustum culling', () => {
+  const camera = new THREE.PerspectiveCamera(45, 1, 0.001, 10000);
+  camera.position.set(0, 0, 500);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld(true);
+
+  // Front tile near (0, 0)
+  const frontTile = { z: 4, x: 4, y: 4, column: 0, row: 0 };
+  // Back tile on opposite hemisphere of Mars
+  const backTile = { z: 4, x: 12, y: 4, column: 1, row: 1 };
+
+  assert.equal(isTileVisible(frontTile, camera), true);
+  assert.equal(isTileVisible(backTile, camera), false);
+});
+
