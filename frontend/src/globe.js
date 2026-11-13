@@ -92,7 +92,6 @@ export class MarsGlobeApp {
 
     window.addEventListener('resize', this.onWindowResize.bind(this));
     
-    // Fix 3: Only trigger isDragging when mouse buttons are actively pressed down
     this.renderer.domElement.addEventListener('pointerdown', () => { this.isDragging = false; });
     this.renderer.domElement.addEventListener('pointermove', (e) => { 
       if (e.buttons > 0) {
@@ -180,7 +179,6 @@ export class MarsGlobeApp {
   showWaypointInfo(wp) {
     this.selectedWaypoint = wp;
     
-    // Fix 2: Secure DOM node creation (avoiding innerHTML XSS vulnerabilities)
     this.infoPanel.innerHTML = '';
 
     const header = document.createElement('div');
@@ -296,7 +294,6 @@ export class MarsGlobeApp {
     }
   }
 
-  // Fix 1: Complete and valid renderErrorState method implementation
   renderErrorState(message) {
     let errBanner = document.getElementById('globe-error-banner');
     if (!errBanner) {
@@ -313,6 +310,7 @@ export class MarsGlobeApp {
   }
 }
 
+// Securely instantiate locally on DOM load without polluting the global window object
 document.addEventListener('DOMContentLoaded', () => {
-  window.marsApp = new MarsGlobeApp();
+  new MarsGlobeApp();
 });
