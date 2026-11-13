@@ -11,7 +11,6 @@ globalThis.__ARESPATH_TURBO__ = turbo;
 const api = new TerrainClient(import.meta.env.VITE_API_BASE_URL || '');
 
 // --- FULL MARTIAN YEAR EPHEMERIS DATASET (~686.98 Earth Days) ---
-// Expanded to cover a complete Martian orbit so datasetSpanMs matches marsYearMs physically.
 const marsEphemerisDataset = [
   { timestamp: Date.UTC(2026, 0, 1, 0, 0, 0), ls: 250.5 },
   { timestamp: Date.UTC(2026, 3, 1, 0, 0, 0), ls: 342.1 },
@@ -19,7 +18,7 @@ const marsEphemerisDataset = [
   { timestamp: Date.UTC(2026, 9, 1, 0, 0, 0), ls: 161.4 },
   { timestamp: Date.UTC(2027, 0, 1, 0, 0, 0), ls: 251.2 },
   { timestamp: Date.UTC(2027, 3, 1, 0, 0, 0), ls: 343.0 },
-  { timestamp: Date.UTC(2027, 7, 18, 0, 0, 0), ls: 74.5 }, // Completes ~686.98 days (1 Martian Year)
+  { timestamp: Date.UTC(2027, 7, 18, 0, 0, 0), ls: 74.5 },
   { timestamp: Date.UTC(2027, 10, 18, 0, 0, 0), ls: 162.0 }
 ];
 
@@ -37,19 +36,16 @@ function getMarsSunPositionFromLs(lsDegrees, distance = 10000) {
 function getSolarLongitudeFromData(targetTime = Date.now()) {
   const firstEntry = marsEphemerisDataset[0];
   const lastEntry = marsEphemerisDataset[marsEphemerisDataset.length - 1];
-  const marsYearMs = 686.98 * 86400000; // Exact physical Martian year in ms[cite: 5]
+  const marsYearMs = 686.98 * 86400000; // Exact physical Martian year in ms
 
-  // If time is before our dataset, clamp safely
   if (targetTime <= firstEntry.timestamp) {
     return firstEntry.ls;
   }
 
-  // Cyclic wrap using the true Martian year period
   if (targetTime >= lastEntry.timestamp) {
     const timeBeyond = targetTime - firstEntry.timestamp;
     const cyclicTime = firstEntry.timestamp + (timeBeyond % marsYearMs);
     
-    // If wrapped time falls past our dataset array end, normalize it safely into bounds
     if (cyclicTime > lastEntry.timestamp) {
       const datasetSpanMs = lastEntry.timestamp - firstEntry.timestamp;
       const normalizedTime = firstEntry.timestamp + ((cyclicTime - firstEntry.timestamp) % datasetSpanMs);
@@ -78,7 +74,22 @@ function getSolarLongitudeFromData(targetTime = Date.now()) {
   const interpolatedLs = (prev.ls + factor * diff + 360) % 360;
   return interpolatedLs;
 }
-// -------------------------------------------------------------
+
+// --- 12 MARS EXPLORATION WAYPOINTS DATASET ---
+const waypoints = [
+  { name: "Gale Crater", lat: -5.4, lon: 137.8, description: "Landing site of NASA's Curiosity rover. Features Mount Sharp, revealing stratified layers of ancient lakebed sediments.", significance: "Crucial for studying past habitability and organic carbon preservation in ancient aqueous environments." },
+  { name: "Jezero Crater", lat: 18.38, lon: 77.58, description: "An ancient river delta system explored by NASA's Perseverance rover.", significance: "High potential for preserving biosignatures and microbial fossils from Mars' wet history." },
+  { name: "Olympus Mons", lat: 18.65, lon: 226.2, description: "The largest volcano in the solar system, standing nearly three times the height of Mount Everest.", significance: "Provides insights into planetary volcanism, crustal stability, and the lack of plate tectonics on Mars." },
+  { name: "Valles Marineris", lat: -14.0, lon: 283.0, description: "A vast system of canyons stretching over 4,000 kilometers across the Martian surface.", significance: "Offers deep geological cross-sections of the Martian crust and clues about ancient tectonic fracturing." },
+  { name: "Elysium Planitia", lat: 4.5, lon: 135.6, description: "Smooth volcanic plain and landing site of NASA's InSight lander.", significance: "Key site for measuring Martian interior structure, crust thickness, and seismic activity (marsquakes)." },
+  { name: "Acidalia Planitia", lat: 46.7, lon: 339.3, description: "A vast flat plain located in the northern hemisphere, notable for its dark albedo features.", significance: "Hypothesized to be the bed of an ancient northern ocean, important for climate evolution models." },
+  { name: "Arcadia Planitia", lat: 46.7, lon: 188.0, description: "A smooth volcanic plain characterized by extensive fields of low-relief lava flows and subsurface ice deposits.", significance: "Considered a prime candidate site for future human exploration due to accessible subsurface water ice." },
+  { name: "Utopia Planitia", lat: 49.7, lon: 118.0, description: "The largest recognized impact basin on Mars and the landing site of NASA's Viking 2 lander.", significance: "Contains vast reservoirs of subsurface water ice sheets, critical for in-situ resource utilization (ISRU)." },
+  { name: "Hellas Planitia", lat: -42.4, lon: 70.5, description: "A massive impact crater and one of the largest craters in the solar system, with exceptionally low atmospheric pressure at its base.", significance: "Its deep floor allows unique atmospheric dynamics and potential subsurface hydrothermal mineral formation." },
+  { name: "Syrtis Major Planum", lat: 8.4, lon: 69.5, description: "A prominent dark volcanic plateau that was one of the first albedo features mapped by early astronomers.", significance: "Features ancient clay minerals and hydrothermal deposits, marking it as a high-priority astrobiological target." },
+  { name: "Meridiani Planum", lat: 2.0, lon: 5.5, description: "A smooth plain featuring abundant grey hematite mineral deposits, explored by NASA's Opportunity rover.", significance: "Provided definitive mineralogical evidence of past acidic standing water on the Martian surface." },
+  { name: "Arsia Mons", lat: -8.4, lon: 239.0, description: "The southernmost of the three giant shield volcanoes forming the Tharsis Montes group.", significance: "Features potential deep volcanic cave skylights that could serve as radiation-protected habitats." }
+];
 
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#05080e');
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, .000001, 30000);
@@ -98,12 +109,7 @@ const sunDistance = 10000;
 const sunRadius = sunDistance * Math.tan(THREE.MathUtils.degToRad(0.35 / 2));
 
 const sunGeometry = new THREE.SphereGeometry(sunRadius, 32, 32);
-const sunMaterial = new THREE.MeshBasicMaterial({
-  color: 0xfff8e5,
-  fog: false,
-  toneMapped: false
-});
-
+const sunMaterial = new THREE.MeshBasicMaterial({ color: 0xfff8e5, fog: false, toneMapped: false });
 const sunMesh = new THREE.Mesh(sunGeometry, sunMaterial);
 sunMesh.name = 'visibleSun';
 scene.add(sunMesh);
@@ -111,12 +117,61 @@ scene.add(sunMesh);
 function updateSunPosition() {
   const currentLs = getSolarLongitudeFromData(Date.now()); 
   const sunPos = getMarsSunPositionFromLs(currentLs, sunDistance);
-  
   sun.position.copy(sunPos);
   sunMesh.position.copy(sunPos);
 }
 
 updateSunPosition();
+
+// --- WAYPOINT MARKER SETUP ---
+const waypointGroup = new THREE.Group();
+scene.add(waypointGroup);
+const waypointMeshes = [];
+
+function createWaypointMarkers() {
+  if (!radiusGrid || !mola) return;
+  waypoints.forEach(wp => {
+    const groundRadius = sampleMola(radiusGrid, mola.width, mola.height, wp.lon, wp.lat, wp.offset_m);
+    const elevationOffset = (groundRadius * SCALE) + 6000; 
+    const pos = vector(planetPoint(wp.lon, wp.lat, elevationOffset));
+
+    const markerGeo = new THREE.SphereGeometry(1200, 16, 16);
+    const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ffcc, wireframe: false });
+    const mesh = new THREE.Mesh(markerGeo, markerMat);
+    mesh.position.copy(pos);
+    mesh.userData = wp;
+
+    waypointGroup.add(mesh);
+    waypointMeshes.push(mesh);
+  });
+}
+
+function showWaypointInfo(wp) {
+  let panel = document.querySelector('#waypoint-info-panel');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'waypoint-info-panel';
+    panel.style.cssText = `
+      position: absolute; bottom: 40px; right: 40px; width: 340px;
+      background: rgba(5, 8, 14, 0.92); border: 1px solid rgba(0, 255, 204, 0.4);
+      color: #fff; padding: 20px; font-family: sans-serif; border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6); z-index: 100; backdrop-filter: blur(6px);
+    `;
+    document.body.appendChild(panel);
+  }
+
+  panel.innerHTML = `
+    <h3 style="margin: 0 0 8px 0; color: #00ffcc; font-size: 18px; font-weight: 600;">${wp.name}</h3>
+    <p style="margin: 0 0 12px 0; font-size: 13px; line-height: 1.4; color: #d3d3d3;">${wp.description}</p>
+    <div style="font-size: 12px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 10px; color: #90e0ef; line-height: 1.3;">
+      <strong style="color: #fff;">Exploration Significance:</strong> ${wp.significance}
+    </div>
+    <button onclick="document.querySelector('#waypoint-info-panel').remove()" style="
+      margin-top: 15px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); 
+      padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 12px; width: 100%; transition: background 0.2s;
+    " onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">Close Panel</button>
+  `;
+}
 
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
 const errorText = document.querySelector('#error');
@@ -130,7 +185,7 @@ turboToggle.addEventListener('click', () => {
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain, contextTerrain;
 let contextPending, contextLoadedKey = '', contextRequestedKey = '', contextRetryAt = 0, contextFailed = false;
-let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
+let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = '', scheduledAt = 0;
 let autoFocusPending = false, autoFocusRetryAt = 0;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 const innerMask = new THREE.Vector4(0, 0, 0, 0);
@@ -354,6 +409,10 @@ async function initialize() {
       if(terrainBounds.z>terrainBounds.x && lon>terrainBounds.x && lon<terrainBounds.z && lat>terrainBounds.y && lat<terrainBounds.w) discard;`);
   };
   baseMesh = new THREE.Mesh(geometry, material); scene.add(baseMesh);
+  
+  // Spawn the 12 waypoint markers once globe data is loaded
+  createWaypointMarkers();
+
   const query = new URLSearchParams(location.search);
   const requested = query.get('site'), patch = mola.patches.find(item => item.site === requested);
   const lonText = query.get('longitude'), latText = query.get('latitude'), rangeText = query.get('range');
@@ -369,6 +428,26 @@ async function initialize() {
       errorText.textContent = 'Invalid location or range in link.';
   }
 }
+
+// Raycaster for clicking waypoints
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+
+renderer.domElement.addEventListener('click', event => {
+  if (flight || !waypointMeshes.length) return;
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(waypointMeshes);
+
+  if (hits.length > 0) {
+    const selectedWaypoint = hits[0].object.userData;
+    showWaypointInfo(selectedWaypoint);
+  }
+});
 
 renderer.domElement.addEventListener('dblclick', event => {
   if (!baseMesh || flight) return;
