@@ -39,7 +39,7 @@ export class MarsGlobeApp {
     this.isDragging = false;
     this.animationFrameId = null;
 
-    // Fix 2: Bind animate once in the constructor to avoid per-frame garbage collection/bind leaks
+    // Bind animate once in the constructor to avoid per-frame garbage collection/bind leaks
     this.animate = this.animate.bind(this);
 
     this.init().catch(err => {
@@ -173,7 +173,7 @@ export class MarsGlobeApp {
     title.style.cssText = 'font-size: 16px; font-weight: bold; margin-bottom: 8px;';
     title.textContent = wp.name;
 
-    // Fix 3: Dynamically compute correct N/S and E/W hemisphere directional labels
+    // Dynamically compute correct N/S and E/W hemisphere directional labels
     const latDir = wp.lat >= 0 ? 'N' : 'S';
     const lonDir = wp.lon >= 0 ? 'E' : 'W';
     const coords = document.createElement('div');
@@ -292,3 +292,8 @@ export class MarsGlobeApp {
     errBanner.innerText = `Globe Initialization Error: ${message}`;
   }
 }
+
+// Automatically self-instantiate on DOM load as requested by reviewer
+document.addEventListener('DOMContentLoaded', () => {
+  new MarsGlobeApp();
+});
