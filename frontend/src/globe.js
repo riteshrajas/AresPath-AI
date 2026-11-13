@@ -38,7 +38,6 @@ export class MarsGlobeApp {
     this.clickTimeout = null;
     this.isDragging = false;
 
-    // Blocker 2 & 5 Fix: Properly handle async initialization promise and provide fallback error UI
     this.init().catch(err => {
       console.error("MarsGlobeApp initialization failed:", err);
       this.renderErrorState(err.message);
@@ -93,9 +92,13 @@ export class MarsGlobeApp {
 
     window.addEventListener('resize', this.onWindowResize.bind(this));
     
-    // Blocker 3 Fix: Handle pointerdown, pointermove, and pointerup to accurately clear isDragging
+    // Fix 3: Only trigger isDragging when mouse buttons are actively pressed down
     this.renderer.domElement.addEventListener('pointerdown', () => { this.isDragging = false; });
-    this.renderer.domElement.addEventListener('pointermove', () => { this.isDragging = true; });
+    this.renderer.domElement.addEventListener('pointermove', (e) => { 
+      if (e.buttons > 0) {
+        this.isDragging = true; 
+      }
+    });
     this.renderer.domElement.addEventListener('pointerup', () => { 
       setTimeout(() => { this.isDragging = false; }, 50); 
     });
@@ -110,7 +113,6 @@ export class MarsGlobeApp {
     try {
       const res = await fetch('/api/v1/globe/manifest');
       if (!res.ok) {
-        // Blocker 4 Fix: Throw diagnostic error on non-2xx responses
         throw new Error(`Manifest HTTP error status: ${res.status}`);
       }
       this.manifest = await res.json();
@@ -142,7 +144,6 @@ export class MarsGlobeApp {
       marker.position.copy(position);
       marker.userData = wp;
 
-      // Blocker 1 Fix: Fully completed statement with THREE.DoubleSide
       const ringGeo = new THREE.RingGeometry(1.2, 1.8, 32);
       const ringMat = new THREE.MeshBasicMaterial({ 
         color: 0x00ffff, 
@@ -178,21 +179,42 @@ export class MarsGlobeApp {
 
   showWaypointInfo(wp) {
     this.selectedWaypoint = wp;
-    this.infoPanel.innerHTML = `
-      <div style="font-size: 11px; color: #00ffff; letter-spacing: 1px; margin-bottom: 4px;">WAYPOINT #${wp.id}</div>
-      <div style="font-size: 16px; font-weight: bold; margin-bottom: 8px;">${wp.name}</div>
-      <div style="font-size: 12px; color: #aaa; margin-bottom: 12px;">Coordinates: ${wp.lat}° N, ${wp.lon}° E</div>
-      <div style="font-size: 13px; line-height: 1.4; color: #ddd; margin-bottom: 12px;">${wp.desc}</div>
-      <button id="close-wp-panel" style="background: #00ffff; color: #000; border: none; padding: 6px 12px; font-weight: bold; border-radius: 4px; cursor: pointer;">Close Panel</button>
-    `;
+    
+    // Fix 2: Secure DOM node creation (avoiding innerHTML XSS vulnerabilities)
+    this.infoPanel.innerHTML = '';
+
+    const header = document.createElement('div');
+    header.style.cssText = 'font-size: 11px; color: #00ffff; letter-spacing: 1px; margin-bottom: 4px;';
+    header.textContent = `WAYPOINT #${wp.id}`;
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size: 16px; font-weight: bold; margin-bottom: 8px;';
+    title.textContent = wp.name;
+
+    const coords = document.createElement('div');
+    coords.style.cssText = 'font-size: 12px; color: #aaa; margin-bottom: 12px;';
+    coords.textContent = `Coordinates: ${wp.lat}° N, ${wp.lon}° E`;
+
+    const desc = document.createElement('div');
+    desc.style.cssText = 'font-size: 13px; line-height: 1.4; color: #ddd; margin-bottom: 12px;';
+    desc.textContent = wp.desc;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'close-wp-panel';
+    closeBtn.style.cssText = 'background: #00ffff; color: #000; border: none; padding: 6px 12px; font-weight: bold; border-radius: 4px; cursor: pointer;';
+    closeBtn.textContent = 'Close Panel';
+    closeBtn.onclick = () => {
+      this.infoPanel.style.display = 'none';
+      this.selectedWaypoint = null;
+    };
+
+    this.infoPanel.appendChild(header);
+    this.infoPanel.appendChild(title);
+    this.infoPanel.appendChild(coords);
+    this.infoPanel.appendChild(desc);
+    this.infoPanel.appendChild(closeBtn);
+
     this.infoPanel.style.display = 'block';
-    const closeBtn = document.getElementById('close-wp-panel');
-    if (closeBtn) {
-      closeBtn.onclick = () => {
-        this.infoPanel.style.display = 'none';
-        this.selectedWaypoint = null;
-      };
-    }
   }
 
   onPointerClick(event) {
@@ -274,5 +296,23 @@ export class MarsGlobeApp {
     }
   }
 
+  // Fix 1: Complete and valid renderErrorState method implementation
   renderErrorState(message) {
-    let
+    let errBanner = document.getElementById('globe-error-banner');
+    if (!errBanner) {
+      errBanner = document.createElement('div');
+      errBanner.id = 'globe-error-banner';
+      errBanner.style.cssText = `
+        position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+        background: rgba(255, 50, 50, 0.9); color: #fff; padding: 12px 24px;
+        border-radius: 6px; font-family: monospace; z-index: 1000; font-size: 14px;
+      `;
+      document.body.appendChild(errBanner);
+    }
+    errBanner.innerText = `Globe Initialization Error: ${message}`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  window.marsApp = new MarsGlobeApp();
+});
