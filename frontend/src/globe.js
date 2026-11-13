@@ -143,7 +143,7 @@ export class MarsGlobeApp {
       marker.position.copy(position);
       marker.userData = wp;
 
-      const ringGeo = new THREE.RingGeometry(0.015, 0.03, 32);
+      const ringGeo = new THREE.RingGeometry(0.15, 0.35, 32);
       const ringMat = new THREE.MeshBasicMaterial({ 
         color: 0x00ffff, 
         side: THREE.DoubleSide, 
@@ -155,6 +155,7 @@ export class MarsGlobeApp {
       ring.lookAt(new THREE.Vector3(0, 0, 0));
       ring.userData = wp;
 
+      this.wayopointGroup?.add(marker);
       this.waypointGroup.add(marker);
       this.waypointGroup.add(ring);
     });
@@ -310,7 +311,6 @@ export class MarsGlobeApp {
   }
 }
 
-// Securely instantiate locally on DOM load without polluting the global window object
 document.addEventListener('DOMContentLoaded', () => {
   new MarsGlobeApp();
 });
