@@ -48,12 +48,7 @@ export class MarsGlobeApp {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x050508);
 
-    this.camera = new THREE.PerspectiveCamera(
-      45,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      50000
-    );
+    this.camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 50000);
     this.camera.position.set(0, 0, MARS_RADIUS_SCALED * 4.5);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -77,11 +72,7 @@ export class MarsGlobeApp {
     this.scene.add(sunLight);
 
     const geometry = new THREE.SphereGeometry(MARS_RADIUS_SCALED, 64, 64);
-    const material = new THREE.MeshStandardMaterial({
-      color: 0xc1440e,
-      roughness: 0.9,
-      metalness: 0.1
-    });
+    const material = new THREE.MeshStandardMaterial({ color: 0xc1440e, roughness: 0.9, metalness: 0.1 });
     this.marsMesh = new THREE.Mesh(geometry, material);
     this.scene.add(this.marsMesh);
     this.scene.add(this.waypointGroup);
@@ -144,12 +135,7 @@ export class MarsGlobeApp {
       marker.userData = wp;
 
       const ringGeo = new THREE.RingGeometry(0.005, 0.01, 32);
-      const ringMat = new THREE.MeshBasicMaterial({ 
-        color: 0x00ffff, 
-        side: THREE.DoubleSide, 
-        transparent: true, 
-        opacity: 0.7 
-      });
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0x00ffff, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.position.copy(position);
       ring.lookAt(new THREE.Vector3(0, 0, 0));
@@ -165,12 +151,7 @@ export class MarsGlobeApp {
     if (!panel) {
       panel = document.createElement('div');
       panel.id = 'waypoint-info-panel';
-      panel.style.cssText = `
-        position: absolute; bottom: 24px; left: 24px; background: rgba(10, 10, 15, 0.85);
-        border: 1px solid rgba(0, 255, 255, 0.3); padding: 16px; border-radius: 8px;
-        color: #fff; font-family: monospace; max-width: 320px; display: none; z-index: 100;
-        backdrop-filter: blur(4px); box-shadow: 0 8px 32px rgba(0,0,0,0.5);
-      `;
+      panel.style.cssText = 'position: absolute; bottom: 24px; left: 24px; background: rgba(10, 10, 15, 0.85); border: 1px solid rgba(0, 255, 255, 0.3); padding: 16px; border-radius: 8px; color: #fff; font-family: monospace; max-width: 320px; display: none; z-index: 100; backdrop-filter: blur(4px); box-shadow: 0 8px 32px rgba(0,0,0,0.5);';
       document.body.appendChild(panel);
     }
     this.infoPanel = panel;
@@ -178,8 +159,133 @@ export class MarsGlobeApp {
 
   showWaypointInfo(wp) {
     this.selectedWaypoint = wp;
-    
     this.infoPanel.innerHTML = '';
 
     const header = document.createElement('div');
-    header.style.cssText = 'font-size: 11px; color: #00ffff; letter-spacing:
+    header.style.cssText = 'font-size: 11px; color: #00ffff; letter-spacing: 1px; margin-bottom: 4px;';
+    header.textContent = `WAYPOINT #${wp.id}`;
+
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size: 16px; font-weight: bold; margin-bottom: 8px;';
+    title.textContent = wp.name;
+
+    const coords = document.createElement('div');
+    coords.style.cssText = 'font-size: 12px; color: #aaa; margin-bottom: 12px;';
+    coords.textContent = `Coordinates: ${wp.lat}° N, ${wp.lon}° E`;
+
+    const desc = document.createElement('div');
+    desc.style.cssText = 'font-size: 13px; line-height: 1.4; color: #ddd; margin-bottom: 12px;';
+    desc.textContent = wp.desc;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.id = 'close-wp-panel';
+    closeBtn.style.cssText = 'background: #00ffff; color: #000; border: none; padding: 6px 12px; font-weight: bold; border-radius: 4px; cursor: pointer;';
+    closeBtn.textContent = 'Close Panel';
+    closeBtn.onclick = () => {
+      this.infoPanel.style.display = 'none';
+      this.selectedWaypoint = null;
+    };
+
+    this.infoPanel.appendChild(header);
+    this.infoPanel.appendChild(title);
+    this.infoPanel.appendChild(coords);
+    this.infoPanel.appendChild(desc);
+    this.infoPanel.appendChild(closeBtn);
+
+    this.infoPanel.style.display = 'block';
+  }
+
+  onPointerClick(event) {
+    if (this.isDragging) return;
+
+    if (this.clickTimeout) {
+      clearTimeout(this.clickTimeout);
+      this.clickTimeout = null;
+      return; 
+    }
+
+    this.clickTimeout = setTimeout(() => {
+      this.clickTimeout = null;
+      this.handleRaycast(event, (hitObject) => {
+        if (hitObject && hitObject.userData && hitObject.userData.id) {
+          this.showWaypointInfo(hitObject.userData);
+        }
+      });
+    }, 250);
+  }
+
+  onPointerDblClick(event) {
+    if (this.clickTimeout) {
+      clearTimeout(this.clickTimeout);
+      this.clickTimeout = null;
+    }
+
+    this.handleRaycast(event, (hitObject) => {
+      if (hitObject && hitObject.userData && hitObject.userData.id) {
+        const targetPos = hitObject.position.clone();
+        const startPos = this.camera.position.clone();
+        const endPos = targetPos.clone().multiplyScalar(1.5);
+        
+        let progress = 0;
+        const animateZoom = () => {
+          progress += 0.05;
+          this.camera.position.lerpVectors(startPos, endPos, progress);
+          this.controls.target.copy(targetPos);
+          this.controls.update();
+          if (progress < 1) requestAnimationFrame(animateZoom);
+        };
+        animateZoom();
+      }
+    });
+  }
+
+  handleRaycast(event, callback) {
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const intersects = this.raycaster.intersectObjects(this.waypointGroup.children);
+
+    if (intersects.length > 0) {
+      callback(intersects[0].object);
+    } else {
+      callback(null);
+    }
+  }
+
+  onWindowResize() {
+    if (!this.camera || !this.renderer) return;
+    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+  }
+
+  animate() {
+    requestAnimationFrame(this.animate.bind(this));
+
+    if (this.marsMesh) {
+      this.marsMesh.rotation.y += 0.0005;
+      this.waypointGroup.rotation.y += 0.0005;
+    }
+
+    if (this.controls) this.controls.update();
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
+  }
+
+  renderErrorState(message) {
+    let errBanner = document.getElementById('globe-error-banner');
+    if (!errBanner) {
+      errBanner = document.createElement('div');
+      errBanner.id = 'globe-error-banner';
+      errBanner.style.cssText = 'position: absolute; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(255, 50, 50, 0.9); color: #fff; padding: 12px 24px; border-radius: 6px; font-family: monospace; z-index: 1000; font-size: 14px;';
+      document.body.appendChild(errBanner);
+    }
+    errBanner.innerText = `Globe Initialization Error: ${message}`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  new MarsGlobeApp();
+});
