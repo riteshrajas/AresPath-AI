@@ -292,8 +292,3 @@ export class MarsGlobeApp {
     errBanner.innerText = `Globe Initialization Error: ${message}`;
   }
 }
-
-// Automatically self-instantiate on DOM load as requested by reviewer
-document.addEventListener('DOMContentLoaded', () => {
-  new MarsGlobeApp();
-});
