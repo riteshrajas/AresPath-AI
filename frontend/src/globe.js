@@ -143,7 +143,7 @@ export class MarsGlobeApp {
       marker.position.copy(position);
       marker.userData = wp;
 
-      const ringGeo = new THREE.RingGeometry(1.2, 1.8, 32);
+      const ringGeo = new THREE.RingGeometry(0.15, 0.35, 32);
       const ringMat = new THREE.MeshBasicMaterial({ 
         color: 0x00ffff, 
         side: THREE.DoubleSide, 
