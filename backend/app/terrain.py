@@ -116,7 +116,7 @@ class TerrainStore:
             metadata = self._json(path/'manifest.json')
             with rasterio.open(path/'elevation.tif') as dataset:
                 left, bottom, right, top = dataset.bounds
-                longitude, latitude = transform(dataset.crs, dataset.crs.geodetic_crs,
+                longitude, latitude = transform(dataset.crs, dataset.crs.geog_crs,
                                                  [left, right], [bottom, top])
             self.datasets.append({'id': identifier, 'path': path, 'source_id': source_id,
                                   'attribution_source_ids':entry.get('attribution_source_ids'),
@@ -164,7 +164,7 @@ class TerrainStore:
             if not selected.size:
                 continue
             with rasterio.open(item['path']/'elevation.tif') as dataset:
-                xx, yy = transform(dataset.crs.geodetic_crs, dataset.crs, longitude[selected], latitude[selected])
+                xx, yy = transform(dataset.crs.geog_crs, dataset.crs, longitude[selected], latitude[selected])
                 values = (sample_global_display_cells(dataset, xx, yy)
                           if display and item['id'] == 'global-200m'
                           else sample_native_cells(dataset, xx, yy))
