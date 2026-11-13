@@ -135,7 +135,7 @@ export class MarsGlobeApp {
 
   buildWaypoints() {
     WAYPOINTS.forEach((wp) => {
-      const position = this.latLonToVector3(wp.lat, wp.lon, MARS_RADIUS_SCALED, 6000);
+      const position = this.latLonToVector3(wp.lat, wp.lon, MARS_RADIUS_SCALED, 500);
 
       const markerGeo = new THREE.SphereGeometry(0.8, 16, 16);
       const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
@@ -143,7 +143,7 @@ export class MarsGlobeApp {
       marker.position.copy(position);
       marker.userData = wp;
 
-      const ringGeo = new THREE.RingGeometry(0.15, 0.35, 32);
+      const ringGeo = new THREE.RingGeometry(0.015, 0.03, 32);
       const ringMat = new THREE.MeshBasicMaterial({ 
         color: 0x00ffff, 
         side: THREE.DoubleSide, 
