@@ -37,6 +37,10 @@ export class MarsGlobeApp {
     
     this.clickTimeout = null;
     this.isDragging = false;
+    this.animationFrameId = null;
+
+    // Fix 2: Bind animate once in the constructor to avoid per-frame garbage collection/bind leaks
+    this.animate = this.animate.bind(this);
 
     this.init().catch(err => {
       console.error("MarsGlobeApp initialization failed:", err);
@@ -169,9 +173,12 @@ export class MarsGlobeApp {
     title.style.cssText = 'font-size: 16px; font-weight: bold; margin-bottom: 8px;';
     title.textContent = wp.name;
 
+    // Fix 3: Dynamically compute correct N/S and E/W hemisphere directional labels
+    const latDir = wp.lat >= 0 ? 'N' : 'S';
+    const lonDir = wp.lon >= 0 ? 'E' : 'W';
     const coords = document.createElement('div');
     coords.style.cssText = 'font-size: 12px; color: #aaa; margin-bottom: 12px;';
-    coords.textContent = `Coordinates: ${wp.lat}° N, ${wp.lon}° E`;
+    coords.textContent = `Coordinates: ${Math.abs(wp.lat)}° ${latDir}, ${Math.abs(wp.lon)}° ${lonDir}`;
 
     const desc = document.createElement('div');
     desc.style.cssText = 'font-size: 13px; line-height: 1.4; color: #ddd; margin-bottom: 12px;';
@@ -261,7 +268,7 @@ export class MarsGlobeApp {
   }
 
   animate() {
-    requestAnimationFrame(this.animate.bind(this));
+    this.animationFrameId = requestAnimationFrame(this.animate);
 
     if (this.marsMesh) {
       this.marsMesh.rotation.y += 0.0005;
@@ -285,7 +292,3 @@ export class MarsGlobeApp {
     errBanner.innerText = `Globe Initialization Error: ${message}`;
   }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-  new MarsGlobeApp();
-});
