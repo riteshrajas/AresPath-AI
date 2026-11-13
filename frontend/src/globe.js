@@ -131,7 +131,8 @@ const waypointMeshes = [];
 function createWaypointMarkers() {
   if (!radiusGrid || !mola) return;
   waypoints.forEach(wp => {
-    const groundRadius = sampleMola(radiusGrid, mola.width, mola.height, wp.lon, wp.lat, wp.offset_m);
+    // FIX 1: Use mola.offset_m instead of undefined wp.offset_m
+    const groundRadius = sampleMola(radiusGrid, mola.width, mola.height, wp.lon, wp.lat, mola.offset_m);
     const elevationOffset = (groundRadius * SCALE) + 6000; 
     const pos = vector(planetPoint(wp.lon, wp.lat, elevationOffset));
 
@@ -146,6 +147,7 @@ function createWaypointMarkers() {
   });
 }
 
+// FIX 3: Secure DOM construction using textContent to prevent XSS vulnerabilities
 function showWaypointInfo(wp) {
   let panel = document.querySelector('#waypoint-info-panel');
   if (!panel) {
@@ -160,17 +162,40 @@ function showWaypointInfo(wp) {
     document.body.appendChild(panel);
   }
 
-  panel.innerHTML = `
-    <h3 style="margin: 0 0 8px 0; color: #00ffcc; font-size: 18px; font-weight: 600;">${wp.name}</h3>
-    <p style="margin: 0 0 12px 0; font-size: 13px; line-height: 1.4; color: #d3d3d3;">${wp.description}</p>
-    <div style="font-size: 12px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 10px; color: #90e0ef; line-height: 1.3;">
-      <strong style="color: #fff;">Exploration Significance:</strong> ${wp.significance}
-    </div>
-    <button onclick="document.querySelector('#waypoint-info-panel').remove()" style="
-      margin-top: 15px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); 
-      padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 12px; width: 100%; transition: background 0.2s;
-    " onmouseover="this.style.background='rgba(255,255,255,0.2)'" onmouseout="this.style.background='rgba(255,255,255,0.1)'">Close Panel</button>
+  panel.innerHTML = ''; // Clear previous content safely
+
+  const title = document.createElement('h3');
+  title.style.cssText = 'margin: 0 0 8px 0; color: #00ffcc; font-size: 18px; font-weight: 600;';
+  title.textContent = wp.name;
+  panel.appendChild(title);
+
+  const desc = document.createElement('p');
+  desc.style.cssText = 'margin: 0 0 12px 0; font-size: 13px; line-height: 1.4; color: #d3d3d3;';
+  desc.textContent = wp.description;
+  panel.appendChild(desc);
+
+  const sigContainer = document.createElement('div');
+  sigContainer.style.cssText = 'font-size: 12px; border-top: 1px solid rgba(255,255,255,0.15); padding-top: 10px; color: #90e0ef; line-height: 1.3;';
+  
+  const sigStrong = document.createElement('strong');
+  sigStrong.style.color = '#fff';
+  sigStrong.textContent = 'Exploration Significance: ';
+  sigContainer.appendChild(sigStrong);
+
+  const sigText = document.createTextNode(wp.significance);
+  sigContainer.appendChild(sigText);
+  panel.appendChild(sigContainer);
+
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close Panel';
+  closeBtn.style.cssText = `
+    margin-top: 15px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); 
+    padding: 6px 12px; cursor: pointer; border-radius: 4px; font-size: 12px; width: 100%; transition: background 0.2s;
   `;
+  closeBtn.onmouseover = () => { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+  closeBtn.onmouseout = () => { closeBtn.style.background = 'rgba(255,255,255,0.1)'; };
+  closeBtn.onclick = () => panel.remove();
+  panel.appendChild(closeBtn);
 }
 
 const inspection = new THREE.DirectionalLight(0xffffff, 0); scene.add(inspection); scene.add(inspection.target);
@@ -185,7 +210,8 @@ turboToggle.addEventListener('click', () => {
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain, contextTerrain;
 let contextPending, contextLoadedKey = '', contextRequestedKey = '', contextRetryAt = 0, contextFailed = false;
-let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = '', scheduledAt = 0;
+// FIX 2: Restored retryAt initial value to number 0 instead of empty string ''
+let local = null, selection = 0, pending, loadedKey = '', requestedKey = '', retryAt = 0, scheduledAt = 0;
 let autoFocusPending = false, autoFocusRetryAt = 0;
 const mask = new THREE.Vector4(0, 0, 0, 0);
 const innerMask = new THREE.Vector4(0, 0, 0, 0);
