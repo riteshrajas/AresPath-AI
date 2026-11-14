@@ -131,7 +131,8 @@ export class MarsGlobeApp {
     WAYPOINTS.forEach((wp) => {
       const position = this.latLonToVector3(wp.lat, wp.lon, MARS_RADIUS_SCALED, 500);
 
-      const markerGeo = new THREE.SphereGeometry(0.8, 16, 16);
+      // Fixed: Resized from 0.8 down to 0.02 so they are tiny pinpoints
+      const markerGeo = new THREE.SphereGeometry(0.02, 16, 16);
       const markerMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
       const marker = new THREE.Mesh(markerGeo, markerMat);
       marker.position.copy(position);
