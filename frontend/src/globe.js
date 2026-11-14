@@ -17,6 +17,7 @@ import { createCinematicReplay } from './cinematic-replay.js';
 import { hydrateReplayGeometry } from './cinematic-geometry.js';
 import { renderRelative } from './render-relative.js';
 import { attachTerrainAnalysis } from './terrain-analysis.js';
+import { createSurfaceView } from './surface-view.js';
 
 const turbo = new URLSearchParams(location.search).get('turbo') === '1';
 globalThis.__ARESPATH_TURBO__ = turbo;
@@ -51,7 +52,7 @@ turboToggle.addEventListener('click', () => {
 });
 const vector = xyz => new THREE.Vector3(...xyz);
 let controls, flight, mola, radiusGrid, baseMesh, baseRadiusAt, texture, terrain, contextTerrain;
-let cinematic;
+let cinematic, surfaceView;
 let cinematicPreviousLocal;
 let wasRelativeRender = false, hasRelativeAnchor = false;
 const relativeAnchor = new THREE.Vector3();
@@ -74,7 +75,12 @@ function makeControls(target = new THREE.Vector3()) {
   controls.maxPolarAngle = local ? Math.PI / 2 - .12 : Math.PI - .03; controls.update();
 }
 makeControls();
-const navigation = createNavigation(camera, () => controls, () => !!flight || !!cinematic?.active, reset);
+const navigation = createNavigation(camera, () => controls, () => !!flight || !!cinematic?.active || !!surfaceView?.active || !!surfaceView?.selecting, reset);
+surfaceView = createSurfaceView({ api, renderer, camera, pick: rayToMarsGround,
+  getAssets: () => baseMesh && texture && baseRadiusAt ? { geometry: baseMesh.geometry, texture, radiusAt: baseRadiusAt } : null,
+  isBusy: () => !!flight || !!cinematic?.active,
+  onLock: locked => { controls.enabled = !locked; },
+});
 const places = createPlaces({ camera, isReady: () => !!baseMesh,
   getRadius: (longitude, latitude) => sampleMola(radiusGrid, mola.width, mola.height, longitude, latitude, mola.offset_m),
   onSelect: (place, range) => explore(place.longitude, place.latitude, place.name, range),
@@ -415,7 +421,7 @@ async function initialize() {
   }
 }
 renderer.domElement.addEventListener('dblclick', event => {
-  if (!baseMesh || flight || cinematic.active) return;
+  if (!baseMesh || flight || cinematic.active || surfaceView.active || surfaceView.selecting) return;
   const rect = renderer.domElement.getBoundingClientRect(), ray = new THREE.Raycaster();
   ray.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -(event.clientY - rect.top) / rect.height * 2 + 1), camera);
   const hit = rayToMarsGround(ray.ray);
@@ -423,6 +429,7 @@ renderer.domElement.addEventListener('dblclick', event => {
   explore(hit.longitude, hit.latitude, 'Selected location', local ? Math.max(300, camera.position.distanceTo(controls.target) / SCALE / 2) : 100000);
 });
 renderer.setAnimationLoop(now => {
+  if (surfaceView.render(now)) return;
   navigation.beginFrame(now);
   if(cinematic.active) cinematic.update(now);
   else if (flight) {
