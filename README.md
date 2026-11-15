@@ -59,10 +59,8 @@ Human explorers on Mars cannot rely on static orbital pictures or slow ground-co
 ## 👥 Team AresPath AI
 
 * **Team Owner & Technical Lead:** Ritesh Raj Arul Selvan *(United States)*
-* **Core Engineer:** Om Anand *(India)*
 * **Core Engineer:** Rishabh Pandey *(United States)*
 * **Core Engineer:** Ishan Sivamaran Rajesh *(United States)*
-* **Core Engineer:** Ishan Anand *(India)*
 
 ---
 
