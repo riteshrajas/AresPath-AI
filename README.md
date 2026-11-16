@@ -1,11 +1,11 @@
-# AresPath: 3D Martian Terrain & Route Explorer
+# Project AresPath: 3D Martian Terrain & Route Explorer
 
 [![NASA Space Apps Challenge 2026](https://img.shields.io/badge/NASA%20Space%20Apps-2026-red.svg)](https://www.spaceappschallenge.org)
 [![Challenge](https://img.shields.io/badge/Challenge-Interplanetary%20Survival%20Guide%3A%20Martian%20Map-blue.svg)](https://www.spaceappschallenge.org)
 
-> **Interplanetary Survival Guide: Martian Map** — NASA International Space Apps Challenge 2026
+> **Interplanetary Survival Guide: Martian Map**: NASA International Space Apps Challenge 2026
 
-**AresPath AI** is an interactive 3D Mars globe and surface route planner built on real NASA, USGS, and ESA elevation datasets. It lets users explore Mars from orbit down to meter-scale terrain, analyze surface slopes, plan 3D routes, and experience ground-level views right in the browser.
+**AresPath ** is an interactive 3D Mars globe and surface route planner built on real NASA, USGS, and ESA elevation datasets. It lets users explore Mars from orbit down to meter-scale terrain, analyze surface slopes, plan 3D routes, and experience ground-level views right in the browser.
 
 ---
 
