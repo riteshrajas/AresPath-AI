@@ -1,9 +1,8 @@
-import * as THREE from 'three';
 import { TerrainClient } from './terrain-client.js';
 import { assembleTerrainWindow } from './terrain-window.js';
-import { replayPlan, sampleReplayRadius } from './cinematic-path.js';
+import { applyReplayCamera, replayPlan } from './cinematic-path.js';
 import { replayCache } from './cinematic-cache.js';
-import { SCALE, sampleMola } from './globe-math.js';
+import { sampleMola } from './globe-math.js';
 import './cinematic-replay.css';
 
 const aborted=()=>new DOMException('Replay canceled','AbortError');
@@ -25,7 +24,6 @@ export function createCinematicReplay({api,renderer,camera,getGlobe,onBegin,onWi
   const curtain=document.createElement('div');curtain.className='cinematic-curtain';document.body.appendChild(curtain);
   const status=hud.querySelector('.cinematic-status'),progress=hud.querySelector('progress'),transport=hud.querySelector('.cinematic-transport'),slider=hud.querySelector('input'),pause=hud.querySelector('.cinematic-pause'),quality=hud.querySelector('small'),time=hud.querySelector('output');
   let job,serial=0,elapsed=0,lastTime,paused=false,speed=1,frame,currentKey,pendingKey,pixelRatio,lastPose;
-  const normal=new THREE.Vector3(),tangent=new THREE.Vector3(),position=new THREE.Vector3(),target=new THREE.Vector3();
   function check(current){if(current!==job||current.controller.signal.aborted)throw aborted();}
   function cleanup(current){current.controller.abort();current.worker?.terminate();current.cache?.close();}
   function finish(message='Replay stopped.',completed=false) {
@@ -111,24 +109,17 @@ export function createCinematicReplay({api,renderer,camera,getGlobe,onBegin,onWi
     const plan=current.plan;
     const dt=lastTime===undefined?0:Math.min(.1,Math.max(0,(now-lastTime)/1000));lastTime=now;
     const proposed=Math.min(plan.duration,elapsed+(paused?0:dt*speed));
-    const distance=proposed/plan.duration*plan.track.total,key=plan.frameKey(distance);
+    const distance=plan.distanceAt(proposed),key=plan.frameKey(distance);
     if(key!==currentKey){elapsed=proposed;if(pendingKey!==key)loadFrame(current,key);status.textContent='Loading a prepared HD terrain section…';lastTime=undefined;return;}
     pendingKey=null;
     elapsed=proposed;
-    const point=plan.track.at(distance),ahead=plan.track.at(Math.min(plan.track.total,distance+plan.altitude*.8)),behind=plan.track.at(Math.max(0,distance-plan.altitude*.8));
-    normal.copy(point.normal);tangent.copy(ahead.position).sub(behind.position).addScaledVector(normal,-ahead.position.clone().sub(behind.position).dot(normal));
-    if(tangent.lengthSq()<1e-12)tangent.crossVectors(new THREE.Vector3(0,1,0),normal);tangent.normalize();
-    const ground=sampleReplayRadius(frame,point.longitude,point.latitude)??point.radius;
-    position.copy(normal).multiplyScalar(ground*SCALE).addScaledVector(tangent,-plan.altitude*SCALE*.9).addScaledVector(normal,plan.altitude*SCALE);
-    const cameraNormal=position.clone().normalize();const lon=Math.atan2(-cameraNormal.z,cameraNormal.x)*180/Math.PI,lat=Math.asin(cameraNormal.y)*180/Math.PI;
-    const underCamera=sampleReplayRadius(frame,lon,lat);
-    if(underCamera!==null&&position.length()<(underCamera+20)*SCALE)position.setLength((underCamera+20)*SCALE);
-    target.copy(normal).multiplyScalar(ground*SCALE).addScaledVector(tangent,Math.min(plan.altitude*.35,plan.track.total-distance)*SCALE);
-    camera.position.copy(position);camera.up.copy(normal);camera.lookAt(target);camera.updateMatrixWorld(true);
-    lastPose={longitude:point.longitude,latitude:point.latitude,target:target.clone()};
+    lastPose=applyReplayCamera(camera,plan,frame,distance,elapsed);
     onPose(lastPose);
     slider.value=String(Math.round(elapsed/plan.duration*1000));time.value=`${Math.floor(elapsed)} / ${Math.round(plan.duration)} s`;
-    status.textContent=`${paused?'Paused':'Following route'} · ${Math.round(distance/plan.track.total*100)}% · ${plan.windows.size} HD sections prepared`;
+    let phase = 'Following route';
+    if (elapsed < plan.introDuration) phase = 'Approaching route start';
+    if (elapsed >= plan.arrivalTime) phase = 'Destination reached';
+    status.textContent=`${paused?'Paused · ':''}${phase} · ${Math.round(distance/plan.track.total*100)}% · ${plan.windows.size} HD sections prepared`;
     if(elapsed>=plan.duration)finish('Cinematic Replay complete — destination reached.',true);
   }};
 }

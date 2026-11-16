@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { routeTrack, replayPlan, sampleReplayRadius } from '../src/cinematic-path.js';
+import { applyReplayCamera, routeTrack, replayPlan, sampleReplayRadius } from '../src/cinematic-path.js';
 import { buildReplayGeometry, hydrateReplayGeometry } from '../src/cinematic-geometry.js';
+import { planetPoint } from '../src/globe-math.js';
 import * as THREE from 'three';
 import { renderRelative } from '../src/render-relative.js';
 const radius=3396000;
@@ -31,6 +32,45 @@ test('native HD plan covers complete route, deduplicates tiles and respects sour
   const coarse=replayPlan({...route,source_ids:[5]},{sources:[{id:5,prepared_resolution_m:200}]});
   assert.ok(coarse.z<plan.z);assert.ok(coarse.altitude>plan.altitude);
   assert.throws(()=>replayPlan(route,{sources:[]}),/resolution is missing/);
+});
+test('replay frames the entire route, descends into the start and holds at the destination', () => {
+  const points = [route.points[0], [77.4435, 18.4272, radius], route.points[1]];
+  const plan = replayPlan({ ...route, points }, result);
+  const frame = { bounds: [77.43, 18.41, 77.46, 18.44], cols: 2, rows: 2, radii: Array(4).fill(radius) };
+
+  for (const aspect of [16 / 9, 9 / 16]) {
+    const camera = new THREE.PerspectiveCamera(45, aspect, .000001, 30000);
+    const overview = applyReplayCamera(camera, plan, frame, plan.distanceAt(0), 0);
+    const wideRange = camera.position.distanceTo(overview.target);
+    for (const point of points) {
+      const projected = new THREE.Vector3(...planetPoint(...point)).project(camera);
+      assert.ok(Math.abs(projected.x) < 1 && Math.abs(projected.y) < .82);
+    }
+
+    const nearTime = plan.introDuration - .001;
+    assert.equal(plan.distanceAt(nearTime), 0);
+    applyReplayCamera(camera, plan, frame, 0, nearTime);
+    const nearPosition = camera.position.clone();
+    const nearDirection = camera.getWorldDirection(new THREE.Vector3());
+    const start = applyReplayCamera(camera, plan, frame, 0, plan.introDuration);
+    assert.ok(camera.position.distanceTo(start.target) < wideRange / 7);
+    assert.ok(start.target.distanceTo(overview.target) > .001);
+    assert.ok(camera.position.distanceTo(nearPosition) < 1e-8);
+    const direction = camera.getWorldDirection(new THREE.Vector3());
+    assert.ok(direction.distanceTo(nearDirection) < 1e-6);
+    const tilt = direction.angleTo(plan.track.at(0).normal.negate());
+    assert.ok(tilt > .3 && tilt < .75);
+
+    const midpoint = (plan.introDuration + plan.arrivalTime) / 2;
+    assert.ok(Math.abs(plan.distanceAt(midpoint) / plan.track.total - .5) < 1e-9);
+    assert.ok(plan.duration > plan.arrivalTime);
+    for (const elapsed of [plan.arrivalTime, plan.duration]) {
+      const distance = plan.distanceAt(elapsed);
+      assert.ok(Math.abs(distance - plan.track.total) < 1e-9);
+      const arrival = applyReplayCamera(camera, plan, frame, distance, elapsed);
+      assert.ok(arrival.target.distanceTo(new THREE.Vector3(...planetPoint(...points.at(-1)))) < 1e-9);
+    }
+  }
 });
 test('prepared geometry retains all grid cells, normals, shading and can be restored',()=>{
   const data={rows:3,cols:3,bounds:[77.44,18.42,77.441,18.421],radii:new Float64Array(9).fill(radius),heights:new Float64Array(9),measured:new Uint8Array(9).fill(1),sourceMetadata:[],z:18};

@@ -438,7 +438,7 @@ renderer.setAnimationLoop(now => {
     camera.up.lerpVectors(flight.up, flight.endUp, ease).normalize(); camera.lookAt(controls.target);
     if (t === 1) { const target = flight.endTarget; flight = null; makeControls(target); }
   } else controls.update();
-  if (local && !flight && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
+  if (local && !flight && !cinematic.active && camera.position.distanceTo(controls.target) / SCALE > 1200000) {
     selection++; local = null; hasRelativeAnchor = false; pending?.abort(); requestedKey = ''; clearTerrain(); clearContext();
     inspection.intensity = 0;
     camera.up.set(0, 1, 0); makeControls();
