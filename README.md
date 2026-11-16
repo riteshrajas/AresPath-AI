@@ -1,4 +1,4 @@
-# 🔴 AresPath AI: 3D Martian Terrain & Route Explorer
+# AresPath: 3D Martian Terrain & Route Explorer
 
 [![NASA Space Apps Challenge 2026](https://img.shields.io/badge/NASA%20Space%20Apps-2026-red.svg)](https://www.spaceappschallenge.org)
 [![Challenge](https://img.shields.io/badge/Challenge-Interplanetary%20Survival%20Guide%3A%20Martian%20Map-blue.svg)](https://www.spaceappschallenge.org)
@@ -9,7 +9,7 @@
 
 ---
 
-## ✨ Key Features
+## Key Features
 
 - **Multi-Resolution 3D Mars Globe:** Streams real elevation data on demand as you zoom—combining global **MOLA** (~14.8 km), the **USGS HRSC/MOLA Global Blend** (200 m), and high-resolution **CTX** (20 m) & **HiRISE** (~1 m) terrain at **Jezero Crater**, **Gale Crater**, and **Olympus Mons**.
 - **3D $A^*$ Route Planner:** Pick any two points (or search **2,051 official Mars landmarks**) to calculate and compare **Safest**, **Balanced**, and **Shortest** paths using real terrain slope constraints and an interactive elevation profile.
@@ -19,7 +19,7 @@
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend:** JavaScript (ES Modules), Vite, Three.js, `three-gpu-pathtracer`, `three-mesh-bvh`, Web Workers, IndexedDB
 - **Backend:** Python, FastAPI, Rasterio / GDAL, NumPy, SpiceyPy (NASA CSPICE)
@@ -27,7 +27,7 @@
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Install Dependencies
 ```powershell
@@ -63,7 +63,7 @@ python -m pytest backend/tests -q
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 - [`frontend/`](frontend/) — Vite + Three.js 3D globe, shaders, route UI, cinematic replay, and 360° surface viewer
 - [`backend/`](backend/) — FastAPI tile server, $A^*$ route planner, and SPICE sky calculator
@@ -72,7 +72,7 @@ python -m pytest backend/tests -q
 
 ---
 
-## 👥 Team AresPath AI
+## Team AresPath AI
 - **Ritesh Raj Arul Selvan** — Team Owner & Technical Lead
 - **Rishabh Pandey** — Core Engineer
 - **Ishan Sivamaran Rajesh** — Core Engineer
