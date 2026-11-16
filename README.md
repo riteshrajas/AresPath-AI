@@ -5,7 +5,7 @@
 
 > **Interplanetary Survival Guide: Martian Map**: NASA International Space Apps Challenge 2026
 
-**AresPath ** is an interactive 3D Mars globe and surface route planner built on real NASA, USGS, and ESA elevation datasets. It lets users explore Mars from orbit down to meter-scale terrain, analyze surface slopes, plan 3D routes, and experience ground-level views right in the browser.
+**AresPath** is an interactive 3D Mars globe and surface route planner built on real NASA, USGS, and ESA elevation datasets. It lets users explore Mars from orbit down to meter-scale terrain, analyze surface slopes, plan 3D routes, and experience ground-level views right in the browser.
 
 ---
 
