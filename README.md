@@ -7,6 +7,10 @@
 
 **AresPath** is an interactive 3D Mars globe and surface route planner built on real NASA, USGS, and ESA elevation datasets. It lets users explore Mars from orbit down to meter-scale terrain, analyze surface slopes, plan 3D routes, and experience ground-level views right in the browser.
 
+> [!NOTE]
+> **Live Demo & Resolution Disclaimer ([arespath-ai.onrender.com](https://arespath-ai.onrender.com/))**  
+> The hosted demo runs a **low-resolution version** of the terrain data due to cloud hosting storage and resource allocations—the full high-resolution dataset is **~15 GB**. As a result, terrain detail on the live site will not look nearly as sharp as the visuals shown in our presentation. To experience the full high-resolution terrain, run the data pipeline locally (see [Quick Start](#2-prepare-terrain--sky-data-first-run)) to download the datasets directly to your machine.
+
 ---
 
 ## Key Features
@@ -68,7 +72,6 @@ python -m pytest backend/tests -q
 - [`frontend/`](frontend/) — Vite + Three.js 3D globe, shaders, route UI, cinematic replay, and 360° surface viewer
 - [`backend/`](backend/) — FastAPI tile server, $A^*$ route planner, and SPICE sky calculator
 - [`pipeline/`](pipeline/) — Scripts to download and verify official NASA/USGS datasets
-- [`docs/`](docs/) — Detailed notes on [framework setup](docs/FRAMEWORK.md), [routing](docs/ROUTING.md), [streaming](docs/GLOBE_STREAMING.md), [filters](docs/FILTERS.md), and [scientific limits](docs/TERRAIN_HANDOFF.md)
 
 ---
 
